@@ -26,7 +26,7 @@ const upload = multer({ storage: storage });
 router.post('/submit-for-grading', upload.single('cropFile'), cropListingController.submitForGrading); 
 
 // Existing Routes (Renamed to match new controller functions)
-router.get('/marketplace', cropListingController.getAllCrops); // Fetches crops for the buyer view
+router.get('/all', cropListingController.getAllCrops);
 router.get('/farmer/:farmerId', cropListingController.getFarmersListings); // NEW: Fetches farmer's own listings
 router.get('/:id', cropListingController.getCropById);
 
