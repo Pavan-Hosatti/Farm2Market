@@ -5,8 +5,10 @@ import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 
 // --- CONFIGURATION ---
+// --- CONFIGURATION ---
+// Don't add /api here since we'll add it in individual calls
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-const SUBMIT_ENDPOINT = `${API_BASE_URL}/submit-for-grading`;
+
 const DUMMY_FARMER_ID = '60c72b2f9b1d9c0015b8b4a1'; 
 
 // --- UTILITY: Dynamic Physical Audit Parameters (The Real-World DataData) ---
@@ -110,7 +112,7 @@ const generateGrade = async () => {
         data.append('cropType', formData.cropType);
 
         // ✅ Use environment variable
-        const response = await fetch(`${API_BASE_URL}/api/predict`, {
+        const response = await fetch(`${API_BASE_URL}/predict`, {
             method: 'POST',
             body: data,
         });
@@ -176,7 +178,7 @@ const generateGrade = async () => {
         setSubmissionMessage({ type: '', text: '' });
     };
 
-   const handleSubmit = async () => {
+const handleSubmit = async () => {
     if (!formData.quantityKg || !formData.pricePerKg || !formData.location) {
         setSubmissionMessage({ type: 'error', text: t('errors.fillRequiredFields') });
         return;
@@ -191,7 +193,7 @@ const generateGrade = async () => {
     setSubmissionMessage({ type: 'info', text: t('messages.submitting') });
 
     const data = new FormData();
-     data.append('cropFile', cropFile);  
+    data.append('cropFile', cropFile);  
     data.append('farmerId', DUMMY_FARMER_ID);
     data.append('crop', formData.cropType);
     data.append('quantityKg', formData.quantityKg);
@@ -201,14 +203,13 @@ const generateGrade = async () => {
     data.append('marketChoice', formData.marketChoice);
 
     try {
-        const response = await axios.post(`${API_BASE_URL}/crop-listings/submit-for-grading`, data, {
+        // ✅ FIXED: Correct endpoint path
+       const response = await axios.post(`${API_BASE_URL}/crops/submit-for-grading`, data, {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
 
-        // Backend now returns grade in response
         const { cropListing, gradeDetails } = response.data;
         
-        // Update UI with grade result
         setGradeResult({
             grade: gradeDetails.grade,
             qualityScore: gradeDetails.confidence,
@@ -223,13 +224,13 @@ const generateGrade = async () => {
             text: `✅ Graded as ${gradeDetails.grade} with ${gradeDetails.confidence}% confidence!`
         });
         
-        setCurrentStep(6); // Move to results page
+        setCurrentStep(6);
 
     } catch (error) {
         console.error('Submission error:', error);
         setSubmissionMessage({ 
             type: 'error', 
-            text: error.response?.data?.message || 'Submission failed'
+            text: error.response?.data?.message || 'Submission failed. Check console for details.'
         });
     } finally {
         setLoading(false);
