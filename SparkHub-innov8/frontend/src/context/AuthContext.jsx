@@ -1,68 +1,64 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// The base URL for your Express backend
 const API_BASE_URL = `${import.meta.env.VITE_API_URL}/auth`;
 
-// 1. Create the Context
 const AuthContext = createContext();
 
-// A custom hook to use the auth context easily
 export const useAuth = () => useContext(AuthContext);
 
-// 2. Create the Provider Component
 export const AuthProvider = ({ children }) => {
-    // We'll try to load user data from localStorage on initial load
+    // ✅ Store both user and token
     const [user, setUser] = useState(() => {
         const storedUser = localStorage.getItem('user');
         return storedUser ? JSON.parse(storedUser) : null;
     });
-    const [isAuthenticated, setIsAuthenticated] = useState(!!user);
     
-    // We assume the auth state is ready instantly based on localStorage,
-    // but in a real app, you might check the token validity here.
-    const [isAuthReady, setIsAuthReady] = useState(true); 
+    const [token, setToken] = useState(() => {
+        return localStorage.getItem('token') || null;
+    });
+    
+    const [isAuthenticated, setIsAuthenticated] = useState(!!user && !!token);
+    const [isAuthReady, setIsAuthReady] = useState(true);
 
-    // Effect to keep localStorage in sync with user state
+    // ✅ Sync with localStorage
     useEffect(() => {
-        if (user) {
+        if (user && token) {
             localStorage.setItem('user', JSON.stringify(user));
+            localStorage.setItem('token', token);
             setIsAuthenticated(true);
         } else {
             localStorage.removeItem('user');
+            localStorage.removeItem('token');
             setIsAuthenticated(false);
         }
-    }, [user]);
+    }, [user, token]);
 
-    // This function will be called in your Login/Signup components
+    // ✅ Updated login function
     const login = (userData) => {
-        // userData comes from the successful backend response
-        // Note: The token is in an HTTP-only cookie, so we only store the user data locally.
         setUser(userData.user);
+        setToken(userData.token); // Store the token
     };
 
-    /**
-     * MANDATORY: Calls the Express backend to clear the httpOnly cookie.
-     */
+    // ✅ Updated logout function
     const logout = async () => {
         try {
-            // Include credentials to send the existing cookie to the server
             await fetch(`${API_BASE_URL}/logout`, {
                 method: 'GET',
-                credentials: 'include', 
+                credentials: 'include',
             });
         } catch (error) {
-            // Log error but proceed to clear client state
             console.error("Error clearing server-side cookie during logout:", error);
         } finally {
-            // Always clear client-side state
             setUser(null);
+            setToken(null);
         }
     };
 
     const value = {
         user,
+        token, // 🔥 Expose token for API calls
         isAuthenticated,
-        isAuthReady, // Useful for waiting before rendering protected routes
+        isAuthReady,
         login,
         logout
     };
