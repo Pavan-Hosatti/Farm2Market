@@ -15,12 +15,19 @@ if (!fs.existsSync(uploadsDir)) {
     console.log('✅ Created uploads directory');
 }
 
+// 🔧 FIXED CORS - Added ML service port
 const corsOptions = {
-    // TEMPORARY: Hardcode all allowed origins to bypass NODE_ENV check
-    origin: [
-        'https://farm2-market-ashen.vercel.app',
-        'http://localhost:5173'
-    ],
+    origin: process.env.NODE_ENV === 'production' 
+        ? [
+            'https://farm2-market-ashen.vercel.app',
+            'https://farm2-market-ashen.vercel.app/'
+          ]
+        : [
+            'http://localhost:5173',  // Frontend
+            'http://localhost:5001',  // ML Service
+            'http://127.0.0.1:5173',
+            'http://127.0.0.1:5001'
+          ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -33,6 +40,25 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // ✅ ROOT ROUTE FIRST
 app.get('/', (req, res) => {
     res.send('Farm2Market Backend Running!');
+});
+
+// 🔧 ADD ML SERVICE HEALTH CHECK
+app.get('/api/ml-status', async (req, res) => {
+    try {
+        const axios = require('axios');
+        const response = await axios.get('http://localhost:5001/');
+        res.json({ 
+            success: true, 
+            message: 'ML service is running',
+            mlStatus: response.data 
+        });
+    } catch (error) {
+        res.status(503).json({ 
+            success: false, 
+            message: 'ML service is not available',
+            error: error.message 
+        });
+    }
 });
 
 // ✅ IMPORT ROUTES WITH ERROR HANDLING
@@ -94,7 +120,6 @@ mongoose.connect(process.env.MONGO_URI)
     })
     .catch(err => {
         console.error('❌ MongoDB Connection Error:', err.message);
-        // Don't exit - let the app run even if DB fails
     });
 
 // ✅ 404 HANDLER FOR DEBUGGING
@@ -105,6 +130,7 @@ app.use((req, res, next) => {
         message: `Route not found: ${req.method} ${req.url}`,
         availableRoutes: [
             'GET /',
+            'GET /api/ml-status',
             'POST /api/auth/register',
             'POST /api/auth/login',
             'POST /api/crops/submit-for-grading',
@@ -123,13 +149,9 @@ app.use((err, req, res, next) => {
     });
 });
 
-
-
-
-
-
 app.listen(PORT, () => {
     console.log(`✅ Server is running on port ${PORT}`);
     console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`📁 Serving uploads from: ${uploadsDir}`);
+    console.log(`🤖 ML Service should be running on: http://localhost:5001`);
 });
