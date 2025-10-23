@@ -106,6 +106,7 @@ const VoiceBot = () => {
   };
 
   // Process user input and get AI response
+// ...existing code...
   const processUserInput = async (userText) => {
     setIsProcessing(true);
     setError(null);
@@ -119,11 +120,14 @@ const VoiceBot = () => {
         parts: [{ text: msg.text }]
       }));
 
+      // retrieve token safely (adjust key if your app uses a different key)
+      const token = localStorage.getItem('token') || localStorage.getItem('authToken') || null;
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const response = await fetch(`${API_BASE_URL}/voice/query`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         credentials: 'include',
         body: JSON.stringify({
           text: userText,
@@ -142,27 +146,23 @@ const VoiceBot = () => {
       }
 
       if (data.success) {
-        console.log('✅ Processing successful!');
-        console.log('👤 User text:', data.data.userText);
-        console.log('🤖 AI text:', data.data.aiText);
-
         // Add messages to conversation
         const userMessage = {
           role: 'user',
-          text: data.data.userText,
+          text: data.data.userText || userText,
           timestamp: Date.now()
         };
 
         const aiMessage = {
           role: 'assistant',
-          text: data.data.aiText,
+          text: data.data.aiText || (data.data.response || ''),
           timestamp: Date.now()
         };
 
         setConversation(prev => [...prev, userMessage, aiMessage]);
 
-        // Speak the response in Kannada
-        speakText(data.data.aiText);
+        // Speak the response (if available)
+        if (aiMessage.text) speakText(aiMessage.text);
       }
     } catch (err) {
       console.error('❌ API Error:', err);
@@ -171,6 +171,7 @@ const VoiceBot = () => {
       setIsProcessing(false);
     }
   };
+// ...existing code...
 
   // Text-to-Speech using Web Speech API
   const speakText = (text) => {
