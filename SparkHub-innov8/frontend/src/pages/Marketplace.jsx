@@ -12,7 +12,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 // constants
 const MIN_BID_RANGE = 1.0;
 const MARKET_PRICE_ALERT_THRESHOLD = 0.85;
-const API_BASE_URL = `${import.meta.env.VITE_API_URL}/crop-listings`;
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const USER_ID = 'buyer123';
 
 // helpers / mock data
@@ -217,7 +217,7 @@ const Marketplace = () => {
         const fetchCrops = async () => {
             try {
                 await new Promise(resolve => setTimeout(resolve, 1500));
-                const response = await axios.get(`${API_BASE_URL}/marketplace`);
+                const response = await axios.get(`${API_BASE_URL}/crops/all`);
                 const listings = (response.data.listings || []).map(crop => ({
                     ...crop,
                     produce: `${crop.crop} (${crop.grade})`,
