@@ -16,12 +16,11 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 const corsOptions = {
-    origin: process.env.NODE_ENV === 'production' 
-        ? [
-            'https://farm2-market-ashen.vercel.app',
-            'https://farm2-market-ashen.vercel.app/'
-          ]
-        : ['http://localhost:5173'],
+    // TEMPORARY: Hardcode all allowed origins to bypass NODE_ENV check
+    origin: [
+        'https://farm2-market-ashen.vercel.app',
+        'http://localhost:5173'
+    ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
