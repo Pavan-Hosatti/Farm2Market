@@ -70,7 +70,7 @@ const FarmerSignup = () => {
         // 2. Success: Use the context's login function to set global auth state
         login(data); // The data object contains { user: { name, email, role }, token, success }
         
-        toast.success('Registration successful! Welcome to Farm2Market.', { duration: 3000 });
+      
         
         // 3. Navigate to the protected farmer dashboard
         navigate('/farmer-dashboard');
@@ -341,5 +341,6 @@ const FarmerSignup = () => {
     </div>
   );
 };
+
 
 export default FarmerSignup;
