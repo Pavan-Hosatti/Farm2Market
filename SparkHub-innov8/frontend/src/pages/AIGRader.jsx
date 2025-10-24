@@ -189,7 +189,7 @@ const AIGrader = () => {
                 data, 
                 {
                     headers: { 'Content-Type': 'multipart/form-data' },
-                    timeout: 30000
+                    timeout: 360000
                 }
             );
 
@@ -715,3 +715,4 @@ const AIGrader = () => {
 };
 
 export default AIGrader;
+
