@@ -22,12 +22,17 @@ const upload = multer({ storage: storage });
 // ----------------------------
 
 // Farmer Submission Route (Handles file upload)
-// The field name 'cropFile' must match the field name in AIGrader.jsx
-router.post('/submit-for-grading', upload.single('cropFile'), cropListingController.submitForGrading); 
+// 🛑 UPDATED: Field name changed from 'cropFile' to 'video' to match the frontend (AIGrader.jsx)
+router.post('/submit-for-grading', upload.single('video'), cropListingController.submitForGrading); 
 
-// Existing Routes (Renamed to match new controller functions)
+// 🆕 NEW ASYNC ROUTE: Check the status of an ML grading job
+// This route will be called repeatedly by the frontend (polling).
+// It maps to the new controller function you implemented: checkGradingStatus
+router.get('/grading-status/:jobId', cropListingController.checkGradingStatus);
+
+// Existing Routes
 router.get('/all', cropListingController.getAllCrops);
-router.get('/farmer/:farmerId', cropListingController.getFarmersListings); // NEW: Fetches farmer's own listings
+router.get('/farmer/:farmerId', cropListingController.getFarmersListings); 
 router.get('/:id', cropListingController.getCropById);
 
 module.exports = router;
