@@ -15,49 +15,87 @@ if (!fs.existsSync(uploadsDir)) {
     console.log('✅ Created uploads directory');
 }
 
-// 🔧 FIXED CORS - Added ML service port
+// 🔧 DYNAMIC ML SERVICE URL - Works in both local and production
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:5001';
+console.log(`🤖 ML Service URL: ${ML_SERVICE_URL}`);
+
+// 🔧 COMPREHENSIVE CORS CONFIGURATION
+const allowedOrigins = process.env.NODE_ENV === 'production' 
+    ? [
+        'https://farm2-market-ashen.vercel.app',
+        process.env.ML_SERVICE_URL // Allow ML service in production
+      ].filter(Boolean) // Remove undefined values
+    : [
+        'http://localhost:5173',
+        'http://localhost:5001',
+        'http://127.0.0.1:5173',
+        'http://127.0.0.1:5001'
+      ];
+
 const corsOptions = {
-    origin: process.env.NODE_ENV === 'production' 
-        ? [
-            'https://farm2-market-ashen.vercel.app',
-            'https://farm2-market-ashen.vercel.app/',
-            'https://farm2-market-git-main-pavan-hosattis-projects.vercel.app'
-          ]
-        : [
-            'http://localhost:5173',  // Frontend
-            'http://localhost:5001',  // ML Service
-            'http://127.0.0.1:5173',
-            'http://127.0.0.1:5001',
-            'http://localhost:5000/api/crops/all'
-          ],
+    origin: function (origin, callback) {
+        // Allow requests with no origin (mobile apps, Postman, etc.)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            console.warn(`⚠️  CORS blocked origin: ${origin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 86400 // 24 hours
 };
 
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ✅ ROOT ROUTE FIRST
+// ✅ ROOT ROUTE
 app.get('/', (req, res) => {
-    res.send('Farm2Market Backend Running!');
+    res.json({
+        success: true,
+        message: 'Farm2Market Backend Running!',
+        environment: process.env.NODE_ENV || 'development',
+        mlServiceUrl: ML_SERVICE_URL,
+        timestamp: new Date().toISOString()
+    });
 });
 
-// 🔧 ADD ML SERVICE HEALTH CHECK
+// 🔧 HEALTH CHECK ENDPOINT
+app.get('/api/health', (req, res) => {
+    res.json({
+        success: true,
+        status: 'healthy',
+        environment: process.env.NODE_ENV || 'development',
+        timestamp: new Date().toISOString()
+    });
+});
+
+// 🔧 ML SERVICE HEALTH CHECK (Uses dynamic URL)
 app.get('/api/ml-status', async (req, res) => {
     try {
         const axios = require('axios');
-        const response = await axios.get('http://localhost:5001/');
+        const response = await axios.get(`${ML_SERVICE_URL}/`, {
+            timeout: 10000 // 10 second timeout
+        });
         res.json({ 
             success: true, 
             message: 'ML service is running',
+            mlServiceUrl: ML_SERVICE_URL,
             mlStatus: response.data 
         });
     } catch (error) {
+        console.error('❌ ML Service Error:', error.message);
         res.status(503).json({ 
             success: false, 
             message: 'ML service is not available',
+            mlServiceUrl: ML_SERVICE_URL,
             error: error.message 
         });
     }
@@ -109,29 +147,36 @@ if (voiceRoutes) app.use('/api/voice', voiceRoutes);
 if (predictRoutes) app.use('/api/predict', predictRoutes);
 
 console.log('📋 Mounted routes:');
-console.log('   - /api/auth');
-console.log('   - /api/crops');
-console.log('   - /api/bids');
-console.log('   - /api/voice');
-console.log('   - /api/predict');
+console.log('   - GET /');
+console.log('   - GET /api/health');
+console.log('   - GET /api/ml-status');
+if (authRoutes) console.log('   - /api/auth/*');
+if (cropListingRoutes) console.log('   - /api/crops/*');
+if (bidRoutes) console.log('   - /api/bids/*');
+if (voiceRoutes) console.log('   - /api/voice/*');
+if (predictRoutes) console.log('   - /api/predict/*');
 
-// ✅ CONNECT TO DATABASE AFTER MOUNTING ROUTES
+// ✅ CONNECT TO DATABASE
 mongoose.connect(process.env.MONGO_URI)
     .then(() => {
         console.log('✅ MongoDB Connected Successfully');
     })
     .catch(err => {
         console.error('❌ MongoDB Connection Error:', err.message);
+        // Don't exit process - let Render restart
     });
 
-// ✅ 404 HANDLER FOR DEBUGGING
+// ✅ 404 HANDLER
 app.use((req, res, next) => {
     console.log(`⚠️  404 - Route not found: ${req.method} ${req.url}`);
     res.status(404).json({
         success: false,
         message: `Route not found: ${req.method} ${req.url}`,
+        requestedUrl: req.url,
+        method: req.method,
         availableRoutes: [
             'GET /',
+            'GET /api/health',
             'GET /api/ml-status',
             'POST /api/auth/register',
             'POST /api/auth/login',
@@ -144,16 +189,28 @@ app.use((req, res, next) => {
 // ✅ ERROR HANDLER
 app.use((err, req, res, next) => {
     console.error('❌ Server Error:', err);
+    
+    // Handle CORS errors specifically
+    if (err.message === 'Not allowed by CORS') {
+        return res.status(403).json({
+            success: false,
+            message: 'CORS Error: Origin not allowed',
+            error: err.message
+        });
+    }
+    
     res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: err.message
+        error: process.env.NODE_ENV === 'production' ? 'An error occurred' : err.message
     });
 });
 
-app.listen(PORT, () => {
+// ✅ START SERVER
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Server is running on port ${PORT}`);
     console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`📁 Serving uploads from: ${uploadsDir}`);
-    console.log(`🤖 ML Service should be running on: http://localhost:5001`);
+    console.log(`🤖 ML Service URL: ${ML_SERVICE_URL}`);
+    console.log(`🔗 Allowed origins:`, allowedOrigins);
 });
