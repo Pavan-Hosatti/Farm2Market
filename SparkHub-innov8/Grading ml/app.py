@@ -5,9 +5,12 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 from datetime import datetime
+import uuid
+import threading
+from collections import defaultdict
 
 app = Flask(__name__)
-CORS(app)  # Allow requests from Node.js backend
+CORS(app)
 
 # ============================================
 # CONFIGURATION
@@ -15,7 +18,6 @@ CORS(app)  # Allow requests from Node.js backend
 TEMP_FRAMES_FOLDER = 'temp_frames'
 os.makedirs(TEMP_FRAMES_FOLDER, exist_ok=True)
 
-# Model paths based on your training output
 MODEL_PATHS = {
     'tomato': 'runs/classify/tomato_grading6/weights/best.pt',
     'carrot': 'runs/classify/carrot_grading_v1/weights/best.pt',
@@ -38,23 +40,18 @@ for crop, path in MODEL_PATHS.items():
 
 print("="*50 + "\n")
 
-# Grade mapping (model outputs 0='A', 1='B', 2='C')
 GRADE_MAPPING = {0: 'A', 1: 'B', 2: 'C'}
+
+# ============================================
+# JOB STORAGE (In-Memory)
+# ============================================
+jobs = {}  # {job_id: {'status': 'pending/processing/completed/failed', 'result': {}, 'error': str}}
 
 # ============================================
 # HELPER FUNCTIONS
 # ============================================
 
 def extract_frames(video_path, sample_rate=30, max_frames=30):
-    """
-    Extract frames from video
-    Args:
-        video_path: Path to video file
-        sample_rate: Extract every Nth frame
-        max_frames: Maximum number of frames to extract
-    Returns:
-        List of frames (numpy arrays)
-    """
     cap = cv2.VideoCapture(video_path)
     frames = []
     frame_count = 0
@@ -66,13 +63,11 @@ def extract_frames(video_path, sample_rate=30, max_frames=30):
         if not ret:
             break
         
-        # Sample every Nth frame
         if frame_count % sample_rate == 0:
             frames.append(frame)
         
         frame_count += 1
         
-        # Limit frames
         if len(frames) >= max_frames:
             break
     
@@ -82,40 +77,23 @@ def extract_frames(video_path, sample_rate=30, max_frames=30):
 
 
 def predict_grade_from_frames(model, frames):
-    """
-    Predict grade for each frame and return the best (highest) grade
-    Logic: Average the confidence scores for each grade across all frames,
-           then select the highest grade (A > B > C priority)
-    
-    Args:
-        model: Loaded YOLO model
-        frames: List of frames (numpy arrays)
-    
-    Returns:
-        dict with grade, confidence, and breakdown
-    """
-    # Accumulate scores for each grade
     grade_scores = {'A': [], 'B': [], 'C': []}
     
     print(f"🔍 Analyzing {len(frames)} frames...")
     
     for idx, frame in enumerate(frames):
-        # Run prediction
         results = model(frame, verbose=False)
         
         if len(results) > 0:
             probs = results[0].probs
             
-            # Get all class probabilities
             if probs is not None and hasattr(probs, 'data'):
                 confidences = probs.data.cpu().numpy()
                 
-                # Store confidence for each grade
                 for class_idx, confidence in enumerate(confidences):
                     grade = GRADE_MAPPING.get(class_idx, 'C')
                     grade_scores[grade].append(float(confidence) * 100)
     
-    # Calculate average confidence for each grade
     avg_scores = {}
     for grade in ['A', 'B', 'C']:
         if grade_scores[grade]:
@@ -125,12 +103,9 @@ def predict_grade_from_frames(model, frames):
     
     print(f"📈 Average scores: A={avg_scores['A']:.2f}%, B={avg_scores['B']:.2f}%, C={avg_scores['C']:.2f}%")
     
-    # Determine final grade: Highest average wins
-    # Priority: A > B > C (if A has highest avg, return A)
     final_grade = max(avg_scores, key=avg_scores.get)
     final_confidence = avg_scores[final_grade]
     
-    # Overall confidence (max confidence across all predictions)
     all_confidences = []
     for scores in grade_scores.values():
         all_confidences.extend(scores)
@@ -146,20 +121,74 @@ def predict_grade_from_frames(model, frames):
     }
 
 
-# ============================================
-# API ENDPOINTS
-# ============================================
-
-
-@app.route('/api/ml/predict', methods=['POST'])
-def predict():
+def process_video_async(job_id, video_path, crop_type):
     """
-    ML Prediction Endpoint
-    Expects: video file upload + crop type
-    Returns: grade and confidence
+    Background processing function
+    Updates job status as it processes
     """
     try:
-        # ✅ CHANGED: Accept file upload instead of path
+        print(f"\n{'='*50}")
+        print(f"🎬 Background Processing Job: {job_id}")
+        print(f"🌾 Crop Type: {crop_type.upper()}")
+        print(f"{'='*50}")
+        
+        # Update status to processing
+        jobs[job_id]['status'] = 'processing'
+        
+        # Extract frames
+        frames = extract_frames(video_path, sample_rate=30, max_frames=30)
+        
+        if len(frames) == 0:
+            jobs[job_id]['status'] = 'failed'
+            jobs[job_id]['error'] = 'No frames could be extracted from video'
+            return
+        
+        # Get model and predict
+        model = MODELS[crop_type]
+        result = predict_grade_from_frames(model, frames)
+        
+        print(f"✅ Final Grade: {result['grade']} (Confidence: {result['confidence']}%)")
+        print(f"{'='*50}\n")
+        
+        # Update job with result
+        jobs[job_id]['status'] = 'completed'
+        jobs[job_id]['result'] = {
+            'success': True,
+            'grade': result['grade'],
+            'confidence': result['confidence'],
+            'overall_confidence': result['overall_confidence'],
+            'grade_breakdown': result['grade_breakdown'],
+            'frames_analyzed': result['frames_analyzed']
+        }
+        
+    except Exception as e:
+        print(f"❌ Error in background processing: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        jobs[job_id]['status'] = 'failed'
+        jobs[job_id]['error'] = str(e)
+    
+    finally:
+        # Clean up temp file
+        try:
+            if os.path.exists(video_path):
+                os.remove(video_path)
+                print(f"🗑️ Cleaned up temp file: {video_path}")
+        except Exception as cleanup_error:
+            print(f"⚠️ Could not delete temp file: {cleanup_error}")
+
+
+# ============================================
+# API ENDPOINTS (NEW ASYNC PATTERN)
+# ============================================
+
+@app.route('/api/ml/submit', methods=['POST'])
+def submit_job():
+    """
+    Submit a video for processing
+    Returns job_id immediately
+    """
+    try:
         if 'video' not in request.files:
             return jsonify({'error': 'No video file uploaded'}), 400
         
@@ -172,54 +201,70 @@ def predict():
         if crop_type not in MODELS:
             return jsonify({'error': f'Model not available for crop: {crop_type}'}), 400
         
-        # ✅ Save uploaded file temporarily
-        temp_video_path = os.path.join(TEMP_FRAMES_FOLDER, f'temp_{datetime.now().timestamp()}_{video_file.filename}')
+        # Generate unique job ID
+        job_id = str(uuid.uuid4())
+        
+        # Save uploaded file temporarily
+        temp_video_path = os.path.join(
+            TEMP_FRAMES_FOLDER, 
+            f'temp_{job_id}_{video_file.filename}'
+        )
         video_file.save(temp_video_path)
         
-        print(f"\n{'='*50}")
-        print(f"🎬 Processing: {video_file.filename}")
-        print(f"🌾 Crop Type: {crop_type.upper()}")
-        print(f"📁 Temp path: {temp_video_path}")
-        print(f"{'='*50}")
+        # Initialize job
+        jobs[job_id] = {
+            'status': 'pending',
+            'result': None,
+            'error': None,
+            'created_at': datetime.now().isoformat()
+        }
         
-        # Extract frames
-        frames = extract_frames(temp_video_path, sample_rate=30, max_frames=30)
+        # Start background processing
+        thread = threading.Thread(
+            target=process_video_async,
+            args=(job_id, temp_video_path, crop_type)
+        )
+        thread.daemon = True
+        thread.start()
         
-        if len(frames) == 0:
-            # Clean up temp file
-            if os.path.exists(temp_video_path):
-                os.remove(temp_video_path)
-            return jsonify({'error': 'No frames could be extracted from video'}), 400
-        
-        # Get model and predict
-        model = MODELS[crop_type]
-        result = predict_grade_from_frames(model, frames)
-        
-        print(f"✅ Final Grade: {result['grade']} (Confidence: {result['confidence']}%)")
-        print(f"{'='*50}\n")
-        
-        # ✅ Clean up temp file after processing
-        try:
-            if os.path.exists(temp_video_path):
-                os.remove(temp_video_path)
-                print(f"🗑️ Cleaned up temp file: {temp_video_path}")
-        except Exception as cleanup_error:
-            print(f"⚠️ Could not delete temp file: {cleanup_error}")
+        print(f"✅ Job {job_id} submitted for processing")
         
         return jsonify({
             'success': True,
-            'grade': result['grade'],
-            'confidence': result['confidence'],
-            'overall_confidence': result['overall_confidence'],
-            'grade_breakdown': result['grade_breakdown'],
-            'frames_analyzed': result['frames_analyzed']
-        }), 200
+            'job_id': job_id,
+            'message': 'Video submitted for processing'
+        }), 202  # 202 Accepted
         
     except Exception as e:
-        print(f"❌ Error in prediction: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Error submitting job: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ml/status/<job_id>', methods=['GET'])
+def check_status(job_id):
+    """
+    Check the status of a job
+    """
+    if job_id not in jobs:
+        return jsonify({'error': 'Job not found'}), 404
+    
+    job = jobs[job_id]
+    
+    response = {
+        'job_id': job_id,
+        'status': job['status']
+    }
+    
+    # Include result if completed
+    if job['status'] == 'completed':
+        response['result'] = job['result']
+    
+    # Include error if failed
+    if job['status'] == 'failed':
+        response['error'] = job['error']
+    
+    return jsonify(response), 200
+
 
 @app.route('/api/ml/health', methods=['GET'])
 def health_check():
@@ -227,8 +272,24 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'models_loaded': list(MODELS.keys()),
-        'total_models': len(MODELS)
+        'total_models': len(MODELS),
+        'active_jobs': len([j for j in jobs.values() if j['status'] in ['pending', 'processing']])
     }), 200
+
+
+# ============================================
+# LEGACY ENDPOINT (Keep for backward compatibility)
+# ============================================
+
+@app.route('/api/ml/predict', methods=['POST'])
+def predict():
+    """
+    Legacy synchronous endpoint - redirects to async pattern
+    """
+    return jsonify({
+        'error': 'This endpoint is deprecated. Please use /api/ml/submit for async processing',
+        'message': 'Submit your video to /api/ml/submit, then poll /api/ml/status/<job_id>'
+    }), 410  # 410 Gone
 
 
 # ============================================
@@ -237,11 +298,11 @@ def health_check():
 
 if __name__ == '__main__':
     print("\n" + "="*50)
-    print("🤖 ML Grading Service Started")
+    print("🤖 ML Grading Service Started (ASYNC MODE)")
     print("="*50)
     print(f"📍 Running on: http://localhost:5001")
     print(f"🧠 Models: {list(MODELS.keys())}")
     print("="*50 + "\n")
     
-    port = int(os.environ.get('PORT', 5001))  # ← Gets PORT from Render, defaults to 5001 locally
-    app.run(debug=False, host='0.0.0.0', port=port)  # ← Use the dynamic port
+    port = int(os.environ.get('PORT', 5001))
+    app.run(debug=False, host='0.0.0.0', port=port)
