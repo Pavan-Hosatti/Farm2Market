@@ -62,7 +62,7 @@ try {
             const mlUrl = `${ML_SERVICE_URL}/api/ml/submit`; 
             
             console.log('📤 ML Job Submission URL:', mlUrl);
-            console.log('📦 Uploading file size:', fileStats.size, 'bytes');
+          console.log('📦 Uploading file:', req.file.originalname); 
 
             // 🔧 FIX 2: Increased timeout and better error handling
             console.log('⏳ Sending job submission request to ML service...');
