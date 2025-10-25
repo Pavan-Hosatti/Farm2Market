@@ -83,18 +83,33 @@ def predict_grade_from_frames(model, frames):
     print(f"🔍 Analyzing {len(frames)} frames...")
     
     for idx, frame in enumerate(frames):
-        results = model(frame, verbose=False)
-        
-        if len(results) > 0:
-            probs = results[0].probs
+        try:
+            print(f"  Frame {idx+1}/{len(frames)}: Running inference...")
             
-            if probs is not None and hasattr(probs, 'data'):
-                confidences = probs.data.cpu().numpy()
+            # Run inference
+            results = model(frame, verbose=False)
+            
+            if len(results) > 0:
+                probs = results[0].probs
                 
-                for class_idx, confidence in enumerate(confidences):
-                    grade = GRADE_MAPPING.get(class_idx, 'C')
-                    grade_scores[grade].append(float(confidence) * 100)
+                if probs is not None and hasattr(probs, 'data'):
+                    confidences = probs.data.cpu().numpy()
+                    
+                    for class_idx, confidence in enumerate(confidences):
+                        grade = GRADE_MAPPING.get(class_idx, 'C')
+                        grade_scores[grade].append(float(confidence) * 100)
+                    
+                    print(f"  ✅ Frame {idx+1}: Processed successfully")
+                else:
+                    print(f"  ⚠️ Frame {idx+1}: No probabilities found")
+            else:
+                print(f"  ⚠️ Frame {idx+1}: No results")
+                
+        except Exception as frame_error:
+            print(f"  ❌ Frame {idx+1}: Error - {str(frame_error)}")
+            continue
     
+    # Calculate averages
     avg_scores = {}
     for grade in ['A', 'B', 'C']:
         if grade_scores[grade]:
@@ -332,4 +347,5 @@ if __name__ == '__main__':
     
     port = int(os.environ.get('PORT', 5001))
     app.run(debug=False, host='0.0.0.0', port=port)
+
 
