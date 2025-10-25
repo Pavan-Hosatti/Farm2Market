@@ -21,9 +21,9 @@ os.makedirs(TEMP_FRAMES_FOLDER, exist_ok=True)
 
 MODEL_PATHS = {
     'tomato': 'runs/classify/tomato_grading6/weights/best.pt',
-    'carrot': 'runs/classify/carrot_grading_v1/weights/best.pt',
-    'guava': 'runs/classify/guava_grading_v1/weights/best.pt',
-    'apple': 'runs/classify/apple_grading_v1/weights/best.pt',
+    # 'carrot': 'runs/classify/carrot_grading_v1/weights/best.pt',
+    # 'guava': 'runs/classify/guava_grading_v1/weights/best.pt',
+    # 'apple': 'runs/classify/apple_grading_v1/weights/best.pt',
 }
 
 # Load all models at startup
@@ -332,3 +332,4 @@ if __name__ == '__main__':
     
     port = int(os.environ.get('PORT', 5001))
     app.run(debug=False, host='0.0.0.0', port=port)
+
