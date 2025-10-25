@@ -7,18 +7,15 @@ const path = require('path');
 // ML Service URL
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:5001';
 console.log('🔍 ML_SERVICE_URL:', ML_SERVICE_URL);
-// NOTE: Assume axios, fs, path, FormData, CropListing, and ML_SERVICE_URL are defined/imported
+// Fixed version of submitForGrading
 exports.submitForGrading = async (req, res) => {
     console.log('\n🟢 ===== ASYNC JOB SUBMISSION STARTED =====');
     console.log('Timestamp:', new Date().toISOString());
 
-     console.log('🔍 ML_SERVICE_URL from env:', process.env.ML_SERVICE_URL);
+    console.log('🔍 ML_SERVICE_URL from env:', process.env.ML_SERVICE_URL);
     console.log('🔍 ML_SERVICE_URL constant:', ML_SERVICE_URL);
-    console.log('🔍 Full ML submit URL will be:', `${ML_SERVICE_URL}/api/ml/submit`);
 
     try {
-        // ... (Steps 1, 2, 3: Logging and Validation remain the same) ...
-
         if (!req.file) {
             console.log('❌ VALIDATION FAILED: No file in request');
             return res.status(400).json({ 
@@ -40,39 +37,54 @@ exports.submitForGrading = async (req, res) => {
             });
         }
 
+        console.log('📊 File info:', {
+            size: req.file.size,
+            mimetype: req.file.mimetype,
+            path: videoPath
+        });
+
         // 4. PREPARE ML REQUEST
         console.log('\n🔄 ===== SUBMITTING JOB TO ML SERVICE (ASYNC) =====');
         
-        let job_id = null; // New variable to hold the job ID
+        let job_id = null;
 
         try {
-            // Create form data (same as before)
+            // 🔧 FIX 1: Create form data with proper buffer handling
             const formData = new FormData();
-            const fileStream = fs.createReadStream(path.resolve(videoPath));
             
-            formData.append('video', fileStream, {
+            // Read file into buffer first (prevents stream abortion)
+            const fileBuffer = fs.readFileSync(videoPath);
+            const fileStats = fs.statSync(videoPath);
+            
+            formData.append('video', fileBuffer, {
                 filename: req.file.originalname,
-                contentType: req.file.mimetype
+                contentType: req.file.mimetype,
+                knownLength: fileStats.size
             });
             formData.append('cropType', (crop || '').toLowerCase());
 
-            // 🛑 CRITICAL CHANGE: Use /api/ml/submit
             const mlUrl = `${ML_SERVICE_URL}/api/ml/submit`; 
             
             console.log('📤 ML Job Submission URL:', mlUrl);
+            console.log('📦 Uploading file size:', fileStats.size, 'bytes');
 
-            // 5. SEND TO ML SERVICE - Now expecting a fast 202 Accepted response
+            // 🔧 FIX 2: Increased timeout and better error handling
             console.log('⏳ Sending job submission request to ML service...');
             
             const mlResponse = await axios.post(mlUrl, formData, {
                 headers: {
-                    ...formData.getHeaders()
+                    ...formData.getHeaders(),
+                    'Content-Length': formData.getLengthSync()
                 },
-                // Set a shorter timeout, as the ML service should respond quickly with a job_id
-                timeout: 30000, 
-                maxContentLength: Infinity,
-                maxBodyLength: Infinity,
-                validateStatus: (status) => status < 500
+                timeout: 120000, // 🔧 Increased to 2 minutes for upload
+                maxContentLength: 100 * 1024 * 1024, // 100MB
+                maxBodyLength: 100 * 1024 * 1024, // 100MB
+                validateStatus: (status) => status < 500,
+                // 🔧 FIX 3: Better error handling
+                onUploadProgress: (progressEvent) => {
+                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    console.log(`📤 Upload Progress: ${percentCompleted}%`);
+                }
             });
             
             // 6. PROCESS ASYNC ML RESPONSE
@@ -80,27 +92,26 @@ exports.submitForGrading = async (req, res) => {
                 job_id = mlResponse.data.job_id;
                 console.log(`\n✅ Job successfully submitted. Job ID: ${job_id}`);
             } else {
-                console.warn('⚠️ ML service did not return a valid job_id on 202 or returned a different status:', mlResponse.status);
-                // Treat this as an ML error, but still save the crop as pending
+                console.warn('⚠️ ML service response:', mlResponse.status, mlResponse.data);
                 throw new Error(`ML submission failed: ${JSON.stringify(mlResponse.data)}`);
             }
             
         } catch (mlError) {
-            // 7. HANDLE ML SERVICE ERRORS
             console.error('\n❌❌❌ ML SUBMISSION ERROR ❌❌❌');
             console.error('Error Message:', mlError.message);
-            // We set job_id to null and proceed to save the crop with a 'failed_submission' status
+            console.error('Error Code:', mlError.code);
+            
+            if (mlError.code === 'ECONNABORTED') {
+                console.error('🕐 Request timeout - file too large or slow connection');
+            } else if (mlError.code === 'ECONNREFUSED') {
+                console.error('🔌 ML service is not running or not accessible');
+            }
         }
         
         // 8. SAVE TO DATABASE
         console.log('\n💾 ===== SAVING TO DATABASE =====');
         
         const statusToSave = job_id ? 'pending_grading' : 'failed_submission';
-        
-        console.log('Data to save:', {
-            job_id: job_id || 'N/A',
-            status: statusToSave
-        });
         
         const newCrop = new CropListing({
             farmerId,
@@ -112,9 +123,7 @@ exports.submitForGrading = async (req, res) => {
             marketChoice,
             videoUrl: videoPath,
             status: statusToSave,
-            // 🛑 CRITICAL CHANGE: Store the job ID
             mlJobId: job_id, 
-            // Reset grade/score to default/pending, as we don't have the final result yet
             grade: 'Pending', 
             qualityScore: 0,
             gradeDetails: {}
@@ -123,9 +132,24 @@ exports.submitForGrading = async (req, res) => {
         const savedCrop = await newCrop.save();
         console.log('✅ Saved to database with ID:', savedCrop._id);
         
+        // 🔧 FIX 4: Clean up temp file AFTER successful upload
+        // Only delete if ML submission was successful
+        if (job_id) {
+            setTimeout(() => {
+                try {
+                    if (fs.existsSync(videoPath)) {
+                        fs.unlinkSync(videoPath);
+                        console.log('🗑️ Cleaned up temp file after successful submission');
+                    }
+                } catch (cleanupError) {
+                    console.error('⚠️ Cleanup error:', cleanupError.message);
+                }
+            }, 5000); // Wait 5 seconds before cleanup
+        }
+        
         // 9. SEND RESPONSE
         console.log('\n📤 ===== SENDING ASYNC RESPONSE (202 ACCEPTED) =====');
-        const responseStatus = job_id ? 202 : 503; // 202 Accepted or 503 Service Unavailable
+        const responseStatus = job_id ? 202 : 503;
         
         const responseData = {
             success: !!job_id,
@@ -133,7 +157,6 @@ exports.submitForGrading = async (req, res) => {
                 ? 'Crop submitted. Grading job accepted and is now pending.'
                 : 'Crop saved, but ML job submission failed. Try checking status later.',
             cropListingId: savedCrop._id,
-            // 🛑 CRITICAL CHANGE: Return the job ID to the frontend for polling
             job_id: job_id 
         };
         
@@ -143,20 +166,15 @@ exports.submitForGrading = async (req, res) => {
         console.log('🟢 ===== ASYNC JOB SUBMISSION COMPLETED =====\n');
         
     } catch (error) {
-        // ... (Step 10: General Error Handling remains the same) ...
         console.error('\n❌❌❌ CONTROLLER ERROR ❌❌❌');
-        // ...
+        console.error('Full error:', error);
+        
         res.status(500).json({
             success: false,
             message: 'Error submitting crop for grading',
             error: error.message,
-            // ...
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
-    } finally {
-        // 🗑️ IMPORTANT: You should NOT delete the uploaded file (req.file.path) here. 
-        // Your ML service needs it. Ensure your ML service handles file cleanup (as it does 
-        // in your `process_video_async` function) or your backend needs a separate cleanup job.
-        // If your ML service processes the video from the path on this server, ensure it's not deleted.
     }
 };
 
