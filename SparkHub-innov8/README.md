@@ -5,6 +5,7 @@ Farm2Market bridges the gap between farmers and buyers by integrating AI-powered
 
 
 
+
 🧠 System Overview
 
 A fully asynchronous, production-grade ecosystem connecting farmers, AI models, and customers through cloud-deployed microservices.
@@ -24,12 +25,14 @@ Frontend (Display Results & Bidding)
 
 
 ⚙️ Tech Stack
-Layer	Technology	Purpose
-Frontend	React 19, Vite, TailwindCSS, Zustand, Firebase, i18next	Modern responsive UI, multilingual support
-Backend	Node.js, Express, MongoDB Atlas, JWT, Multer, Axios	Auth, routing, video upload, async communication
-ML Model	Flask, YOLOv8 (Ultralytics), OpenCV, Python threading	AI grading of crop videos
-AI Voice Bot	Gemini API (Speech-to-Text), Google Translate (TTS)	Kannada voice input + audio response
-Deployment	Vercel, Render, Railway, MongoDB Atlas	Cloud-hosted microservices
+Layer	                                      Technology	                                                                  Purpose
+Frontend	                  React 19, Vite, TailwindCSS, Zustand, Firebase, i18next	                          Modern responsive UI, multilingual support
+Backend	                  Node.js, Express, MongoDB Atlas, JWT, Multer, Axios                            	Auth, routing, video upload, async communication
+ML Model	                 Flask, YOLOv8 (Ultralytics), OpenCV, Python threading	                               AI grading of crop videos
+AI Voice Bot	             Gemini API (Speech-to-Text), Google Translate (TTS)	                                 Kannada voice input + audio response
+Deployment	             Vercel, Render, Railway, MongoDB Atlas Cloud-hosted microservices
+
+
 
 
 🔍 Features
@@ -41,6 +44,9 @@ Deployment	Vercel, Render, Railway, MongoDB Atlas	Cloud-hosted microservices
 ✅ Cloud-Native Design — Each service deployed independently (scalable, modular).
 ✅ Multilingual UI — Built with react-i18next for seamless language toggling.
 
+
+
+
 🧩 System Architecture
 graph LR
 A[Frontend - React/Vite] -->|Video Upload| B[Backend - Express/MongoDB]
@@ -48,6 +54,8 @@ B -->|Send to| C[ML Model - Flask/YOLOv8]
 C -->|Async Callback| B
 B -->|Result →| A
 A -->|Voice Input/Output| D[Gemini + Google TTS]
+
+
 
 📦 Folder Structure
 Farm2Market/
@@ -57,9 +65,11 @@ Farm2Market/
 └── ml_model/        # Flask + YOLOv8 + OpenCV + Gunicorn
 
 
+
+
 🔧 Installation
 1️⃣ Clone the Repository
-git clone https://github.com/yourusername/Farm2Market.git
+git clone https://github.com/Pavan-Hosatti/Farm2Market.git
 cd Farm2Market
 
 
@@ -145,8 +155,7 @@ CORS configuration across multiple domains
 Pavan Hosatti
 🎓 ISE @ CIT Bangalore
 🚀 Passionate about Full Stack + AI + Cloud
-🌐 LinkedIn
- | GitHub
+
 
 🏁 Summary
 
