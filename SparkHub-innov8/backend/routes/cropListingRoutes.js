@@ -25,10 +25,14 @@ const upload = multer({ storage: storage });
 // 🛑 UPDATED: Field name changed from 'cropFile' to 'video' to match the frontend (AIGrader.jsx)
 router.post('/submit-for-grading', upload.single('video'), cropListingController.submitForGrading); 
 
+
+router.post('/crops/ml-webhook', cropListingController.updateGradeFromML);
+
 // 🆕 NEW ASYNC ROUTE: Check the status of an ML grading job
 // This route will be called repeatedly by the frontend (polling).
 // It maps to the new controller function you implemented: checkGradingStatus
 router.get('/grading-status/:jobId', cropListingController.checkGradingStatus);
+router.post('/crops/ml-webhook', cropListingController.updateGradeFromML);
 
 // Existing Routes
 router.get('/all', cropListingController.getAllCrops);
