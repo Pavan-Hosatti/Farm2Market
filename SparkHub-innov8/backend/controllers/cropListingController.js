@@ -160,48 +160,74 @@ exports.submitForGrading = async (req, res) => {
     }
 };
 
-// New function to add to your Node.js controller file
 exports.checkGradingStatus = async (req, res) => {
     const { jobId } = req.params;
+    
+    console.log(`\n🔍 Checking status for job: ${jobId}`);
     
     if (!jobId) {
         return res.status(400).json({ success: false, message: 'Job ID is required.' });
     }
     
-    const mlStatusUrl = `${ML_SERVICE_URL}/api/ml/status/${jobId}`;
-    console.log(`\n🔍 Checking ML Job Status for ${jobId} at: ${mlStatusUrl}`);
-
     try {
-        // 1. Call the ML Service's Status Endpoint
+        // First check if we have it in our database (webhook might have already updated it)
+        const crop = await CropListing.findOne({ mlJobId: jobId });
+        
+        if (crop && crop.status === 'graded') {
+            console.log(`✅ Job ${jobId} already completed in database`);
+            return res.status(200).json({
+                job_id: jobId,
+                status: 'completed',
+                result: {
+                    grade: crop.grade,
+                    confidence: crop.qualityScore,
+                    overall_confidence: crop.gradeDetails?.overall_confidence || crop.qualityScore,
+                    grade_breakdown: crop.gradeDetails?.grade_breakdown || {},
+                    frames_analyzed: crop.gradeDetails?.frames_analyzed || 0
+                }
+            });
+        }
+        
+        // If not in database yet, check ML service
+        const mlStatusUrl = `${ML_SERVICE_URL}/api/ml/status/${jobId}`;
+        console.log(`📡 Calling ML service: ${mlStatusUrl}`);
+        
         const mlResponse = await axios.get(mlStatusUrl, {
-            // Use a quick timeout for the status check
-            timeout: 15000 
+            timeout: 5000 // Shorter timeout
         });
 
-        // 2. Respond directly with the ML service's data
-        // The ML service returns: { job_id, status, result?, error? }
-        const data = mlResponse.data;
-
-        console.log(`✅ Status check successful. Current status: ${data.status}`);
-        
-        // 200 OK is fine for a status check, regardless of pending/completed/failed
-        return res.status(200).json(data); 
+        console.log(`✅ ML Status response:`, mlResponse.data);
+        return res.status(200).json(mlResponse.data);
 
     } catch (error) {
         console.error(`❌ Error checking status for job ${jobId}:`, error.message);
         
-        let errorMessage = 'Failed to connect to ML status service.';
-        let statusCode = 503; 
+        // If ML service is down, check database one more time
+        try {
+            const crop = await CropListing.findOne({ mlJobId: jobId });
+            if (crop) {
+                // Return pending status if we have the job in database
+                return res.status(200).json({
+                    job_id: jobId,
+                    status: crop.status === 'graded' ? 'completed' : 'processing',
+                    result: crop.status === 'graded' ? {
+                        grade: crop.grade,
+                        confidence: crop.qualityScore
+                    } : null
+                });
+            }
+        } catch (dbError) {
+            console.error('Database fallback failed:', dbError);
+        }
+        
+        let errorMessage = 'Failed to check grading status';
+        let statusCode = 503;
 
         if (error.response) {
-            // Pass through the error status if the ML service returned one
-            errorMessage = error.response.data?.error || error.response.data?.message || 'ML Service error.';
+            errorMessage = error.response.data?.error || error.response.data?.message || errorMessage;
             statusCode = error.response.status;
-            
-            // If the ML service returns 404 (Job not found), pass it along
-            if (statusCode === 404) {
-                 errorMessage = `Grading job ${jobId} not found.`;
-            }
+        } else if (error.code === 'ECONNABORTED') {
+            errorMessage = 'ML service timeout - job might still be processing';
         }
 
         return res.status(statusCode).json({
