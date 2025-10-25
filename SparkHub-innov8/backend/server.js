@@ -20,9 +20,13 @@ const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:5001';
 console.log(`🤖 ML Service URL: ${ML_SERVICE_URL}`);
 
 // 🔧 COMPREHENSIVE CORS CONFIGURATION
-const allowedOrigins = process.env.NODE_ENV === 'production' 
+// 🔧 COMPREHENSIVE CORS CONFIGURATION
+const allowedOrigins = process.env.NODE_ENV === 'production'
     ? [
         'https://farm2-market-ashen.vercel.app',
+        // ✅ ADDED NEW VERCELL DOMAINS FROM USER IMAGE
+        'https://farm2-market-git-main-pavan-hosattis-projects.vercel.app',
+        'https://farm2-market-4o7xt0kgz-pavan-hosattis-projects.vercel.app',
         process.env.ML_SERVICE_URL // Allow ML service in production
       ].filter(Boolean) // Remove undefined values
     : [
@@ -36,7 +40,7 @@ const corsOptions = {
     origin: function (origin, callback) {
         // Allow requests with no origin (mobile apps, Postman, etc.)
         if (!origin) return callback(null, true);
-        
+
         if (allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
@@ -50,6 +54,7 @@ const corsOptions = {
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
     maxAge: 86400 // 24 hours
 };
+
 
 app.use(cors(corsOptions));
 app.use(express.json());
