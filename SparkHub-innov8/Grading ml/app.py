@@ -215,7 +215,7 @@ def process_video_async(job_id, video_path, crop_type):
         
         # Extract frames
         print("📹 Starting frame extraction...")
-        frames = extract_frames(video_path, sample_rate=60, max_frames=10)
+        frames = extract_frames(video_path, sample_rate=30, max_frames=30)
         print(f"📊 Extracted {len(frames)} frames")
         
         if len(frames) == 0:
@@ -498,4 +498,5 @@ if __name__ == '__main__':
         port=port,
         threaded=True  # Enable threading for concurrent requests
     )
+
 
