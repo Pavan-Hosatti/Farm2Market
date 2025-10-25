@@ -12,6 +12,10 @@ exports.submitForGrading = async (req, res) => {
     console.log('\n🟢 ===== ASYNC JOB SUBMISSION STARTED =====');
     console.log('Timestamp:', new Date().toISOString());
 
+     console.log('🔍 ML_SERVICE_URL from env:', process.env.ML_SERVICE_URL);
+    console.log('🔍 ML_SERVICE_URL constant:', ML_SERVICE_URL);
+    console.log('🔍 Full ML submit URL will be:', `${ML_SERVICE_URL}/api/ml/submit`);
+
     try {
         // ... (Steps 1, 2, 3: Logging and Validation remain the same) ...
 
