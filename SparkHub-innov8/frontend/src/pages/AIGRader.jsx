@@ -9,7 +9,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 const ML_SERVICE_URL = import.meta.env.VITE_ML_SERVICE_URL || 'http://localhost:5001';
 const DUMMY_FARMER_ID = '60c72b2f9b1d9c0015b8b4a1';
 
-// --- UTILITY: Dynamic Physical Audit Parameters ---
+// --- UTILITY: Dynamic Physical Audit Parameters
 const getAuditParameters = (cropType) => { 
     return {
         title: 'Physical Parameters',
@@ -722,3 +722,4 @@ const AIGrader = () => {
 };
 
 export default AIGrader;
+
