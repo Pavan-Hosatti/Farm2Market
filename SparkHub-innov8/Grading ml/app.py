@@ -188,7 +188,6 @@ def notify_backend(job_id, status, result=None, error=None):
             print(f"✅ Backend notified successfully for job {job_id}")
         else:
             print(f"⚠️ Backend notification failed: {response.status_code}")
-            print(f"Response: {response.text}")
             
     except Exception as e:
         print(f"❌ Failed to notify backend: {str(e)}")
@@ -499,3 +498,4 @@ if __name__ == '__main__':
         port=port,
         threaded=True  # Enable threading for concurrent requests
     )
+
