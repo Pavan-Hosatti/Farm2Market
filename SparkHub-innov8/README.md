@@ -1,115 +1,153 @@
-🌾 Project: Farm2Market – AI-Driven Farmer–Customer Marketplace
-🔍 Problem Statement
+🌾 Farm2Market — AI-Powered Farmer–Customer Marketplace
+🚀 Revolutionizing Agriculture with AI, Voice, and Full-Stack Engineering
 
-Farmers lose profit due to middlemen and lack of market visibility. Grading produce manually is slow and inconsistent.
-Farm2Market solves this by connecting farmers directly with customers (like hotels, wholesalers, or individual buyers) through a bidding platform. AI automatically grades the produce from uploaded videos, ensuring fair pricing.
+Farm2Market bridges the gap between farmers and buyers by integrating AI-powered crop grading, direct online bidding, and Kannada voice interaction — eliminating middlemen and ensuring fair prices.
 
-🧩 System Overview
-Microservices Architecture (3-tier deployment)
-Service	Stack	Hosted On	Function
-Frontend	React + Vite + TailwindCSS + Firebase	Vercel	Farmer & Customer UI, Upload videos, Live bidding
-Backend	Node.js + Express + MongoDB + JWT	Render / Railway	Handles API routing, auth, communication between UI & ML model
-ML Model Service	Flask + YOLOv8 + OpenCV	Render	Receives crop videos, extracts frames, classifies quality asynchronously
+
+
+🧠 System Overview
+
+A fully asynchronous, production-grade ecosystem connecting farmers, AI models, and customers through cloud-deployed microservices.
+
+Farmer (Video Upload)
+     ↓
+Frontend (React + Vite + Tailwind)
+     ↓
+Backend (Node.js + Express + MongoDB)
+     ↓
+ML Model (Flask + YOLOv8 + OpenCV)
+     ↓
+Backend (Webhook Callback)
+     ↓
+Frontend (Display Results & Bidding)
+
+
+
 ⚙️ Tech Stack
+Layer	Technology	Purpose
+Frontend	React 19, Vite, TailwindCSS, Zustand, Firebase, i18next	Modern responsive UI, multilingual support
+Backend	Node.js, Express, MongoDB Atlas, JWT, Multer, Axios	Auth, routing, video upload, async communication
+ML Model	Flask, YOLOv8 (Ultralytics), OpenCV, Python threading	AI grading of crop videos
+AI Voice Bot	Gemini API (Speech-to-Text), Google Translate (TTS)	Kannada voice input + audio response
+Deployment	Vercel, Render, Railway, MongoDB Atlas	Cloud-hosted microservices
 
-Frontend: React 19, Vite, Zustand, React Router, Framer Motion, GSAP, TailwindCSS, i18next (multilingual support)
 
-Backend: Node.js, Express, MongoDB, Mongoose, Multer, JWT Auth, Axios
+🔍 Features
 
-ML Model: Flask, YOLOv8 (Ultralytics), OpenCV, Python threading, Flask-CORS, Gunicorn
+✅ AI-Based Crop Grading — Farmers upload videos; YOLOv8 classifies crop quality (A/B/C).
+✅ Asynchronous Processing — Backend and model communicate via webhooks to prevent timeouts.
+✅ Kannada Voice Bot — Farmers can talk in Kannada and get replies in Kannada text and voice.
+✅ Direct Bidding System — Buyers can bid live on graded produce.
+✅ Cloud-Native Design — Each service deployed independently (scalable, modular).
+✅ Multilingual UI — Built with react-i18next for seamless language toggling.
 
-AI Voice Assistant:
+🧩 System Architecture
+graph LR
+A[Frontend - React/Vite] -->|Video Upload| B[Backend - Express/MongoDB]
+B -->|Send to| C[ML Model - Flask/YOLOv8]
+C -->|Async Callback| B
+B -->|Result →| A
+A -->|Voice Input/Output| D[Gemini + Google TTS]
 
-Speech-to-Text: Google Gemini API (supports Kannada)
+📦 Folder Structure
+Farm2Market/
+│
+├── frontend/        # React + Vite + Tailwind + i18next
+├── backend/         # Node.js + Express + MongoDB
+└── ml_model/        # Flask + YOLOv8 + OpenCV + Gunicorn
 
-Text Translation & Text-to-Speech: Google Translate API
 
-Multilingual UI: React i18next for Kannada/English toggle
+🔧 Installation
+1️⃣ Clone the Repository
+git clone https://github.com/yourusername/Farm2Market.git
+cd Farm2Market
 
-🧠 AI / ML Pipeline
 
-Farmer uploads a crop video (e.g., tomato).
 
-Backend sends the video to Flask ML Service.
+2️⃣ Frontend Setup
+cd frontend
+npm install
+npm run dev
 
-Flask splits the video into frames using OpenCV.
 
-YOLOv8 model predicts the quality grade (A/B/C) for each frame.
 
-Result sent asynchronously back to backend using webhook callback (non-blocking).
+3️⃣ Backend Setup
+cd backend
+npm install
+npm run start
 
-Backend stores result in MongoDB and updates frontend UI.
 
-✅ Asynchronous processing prevents frontend timeouts
-✅ Real-time grading updates via webhook + polling
-✅ Accurate inference trained on >10,000 labeled crop images
 
-🧩 Voice & Language System (Kannada AI Integration)
+4️⃣ ML Model Setup
+cd ml_model
+pip install -r requirements.txt
+gunicorn app:app
 
-Entire website can switch between Kannada and English instantly using react-i18next.
 
-Integrated Kannada voice bot:
 
-Listens to any natural Kannada speech (farmer input).
-
-Converts it to text using Gemini API.
-
-Processes command / query.
-
-Replies back in Kannada voice + text, using Google Translate TTS.
-
-Helps farmers interact with the platform without needing English or typing skills.
-
-💡 Key Innovations
-
-🌐 Multilingual AI Interface: Voice + Text support for Kannada users.
-
-⚙️ Asynchronous AI Grading: Prevents server overload and request timeout.
-
-🧠 YOLOv8 Grading: Efficient and accurate produce quality classification.
-
-🔗 Modular Microservices: Each component independently deployed & scalable.
-
-📊 Bidding & Transparency: Eliminates middlemen, increases farmer income.
-
-🚀 Deployment Details
-Component	Platform	Tech Used
-Frontend	Vercel	React + Vite
-Backend	Render / Railway	Node.js + Express
-ML Model	Render	Flask + Gunicorn
-Database	MongoDB Atlas	Cloud database
-Storage	Firebase / Multer	Video uploads
-🧩 Sample Python Requirements (requirements.txt)
+📊 Requirements (ML Service)
 flask
 flask-cors
 ultralytics
 opencv-python-headless
 gunicorn
 
-🧩 Sample Frontend package.json (React + Vite)
 
-(Already perfect — great stack!)
 
-🧩 Sample Backend package.json (Node.js + Express)
+🌐 Deployment
+Service	Platform	URL
+Frontend	Vercel	farm2-market-ashen.vercel.app
 
-(Also solid — you’ve covered all production dependencies)
+Backend	Render 	https://farm2market-517h.onrender.com/
 
-🧠 Challenges You Solved
+ML Model	Render https://farm2market-1-o2dq.onrender.com/api/ml/health
 
-404, 502, 503, and 500 cross-service errors while connecting Flask and Node backend.
 
-Render’s CPU limitations during YOLO inference (optimized threading + async).
 
-CORS issues between Vercel → Render → MongoDB Atlas.
+Database	MongoDB Atlas	Cloud-hosted
+🎙️ Kannada Voice AI
 
-Model deployment failures due to .pt file incompatibility — resolved using correct YOLO export.
+🎧 Speech-to-Text: Gemini API
+🗣️ Text-to-Speech: Google Translate
+🌍 Multilingual UI: React i18next
 
-Debugging asynchronous callbacks and ensuring database persistence.
 
-🌟 Final Impact
 
-✅ Farmers can get AI-generated grading in minutes instead of hours.
+Farmers can talk to the bot in Kannada — it understands, processes, and replies naturally in Kannada voice.
 
-✅ Farmers connect directly with verified buyers — more profit, less exploitation.
+🧩 Challenges Solved
 
-✅ Full Kannada support ensures accessibility to local communities.
+404 / 502 / 503 cross-service issues during deployment
+
+Timeout errors from long-running model inference
+
+YOLOv8 .pt file integration in cloud environment
+
+Ensuring async communication via webhook callbacks
+
+CORS configuration across multiple domains
+
+
+
+🌟 Impact
+
+🌾 Empowers Farmers — transparent pricing, higher profits.
+
+🤖 AI for Agriculture — automated, unbiased grading.
+
+🗣️ Inclusive Access — Kannada voice interaction for ease of use.
+
+☁️ Scalable Cloud System — modular deployment for each service.
+
+
+👨‍💻 Author
+
+Pavan Hosatti
+🎓 ISE @ CIT Bangalore
+🚀 Passionate about Full Stack + AI + Cloud
+🌐 LinkedIn
+ | GitHub
+
+🏁 Summary
+
+Farm2Market proves how full-stack engineering, machine learning, and accessible design can converge to solve real-world agricultural problems — bridging technology and community impact.
