@@ -167,9 +167,13 @@ def notify_backend(job_id, status, result=None, error=None):
 
 def process_video_async(job_id, video_path, crop_type):
     """
-    Background processing function
-    Updates job status as it processes
+    Background processing function with timeout
     """
+    import signal
+    
+    def timeout_handler(signum, frame):
+        raise TimeoutError("Processing exceeded maximum time limit")
+    
     try:
         print(f"\n{'='*50}")
         print(f"🎬 Background Processing Job: {job_id}")
@@ -178,20 +182,35 @@ def process_video_async(job_id, video_path, crop_type):
         
         jobs[job_id]['status'] = 'processing'
         
-        frames = extract_frames(video_path, sample_rate=30, max_frames=30)
+        # Extract frames
+        print("📹 Starting frame extraction...")
+        frames = extract_frames(video_path, sample_rate=60, max_frames=10)  # Reduced
+        print(f"📊 Extracted {len(frames)} frames")
         
         if len(frames) == 0:
             jobs[job_id]['status'] = 'failed'
             jobs[job_id]['error'] = 'No frames could be extracted from video'
-            notify_backend(job_id, 'failed', error='No frames extracted')  # 🆕 ADD THIS LINE
+            notify_backend(job_id, 'failed', error='No frames extracted')
             return
         
-        model = MODELS[crop_type]
+        # Get model and predict
+        print(f"🧠 Loading model for {crop_type}...")
+        model = MODELS.get(crop_type)
+        
+        if model is None:
+            jobs[job_id]['status'] = 'failed'
+            jobs[job_id]['error'] = f'Model not available for {crop_type}'
+            notify_backend(job_id, 'failed', error=f'Model not available')
+            return
+        
+        print("🔬 Starting grade prediction...")
         result = predict_grade_from_frames(model, frames)
+        print(f"✅ Prediction complete!")
         
         print(f"✅ Final Grade: {result['grade']} (Confidence: {result['confidence']}%)")
         print(f"{'='*50}\n")
         
+        # Update job with result
         jobs[job_id]['status'] = 'completed'
         jobs[job_id]['result'] = {
             'success': True,
@@ -202,8 +221,16 @@ def process_video_async(job_id, video_path, crop_type):
             'frames_analyzed': result['frames_analyzed']
         }
         
-        # 🆕 ADD THIS LINE
+        # Notify backend
+        print("📤 Notifying backend...")
         notify_backend(job_id, 'completed', result=jobs[job_id]['result'])
+        print("✅ Backend notification sent")
+        
+    except TimeoutError as te:
+        print(f"⏱️ TIMEOUT: {str(te)}")
+        jobs[job_id]['status'] = 'failed'
+        jobs[job_id]['error'] = 'Processing timeout - video too large or complex'
+        notify_backend(job_id, 'failed', error='Processing timeout')
         
     except Exception as e:
         print(f"❌ Error in background processing: {str(e)}")
@@ -211,9 +238,10 @@ def process_video_async(job_id, video_path, crop_type):
         traceback.print_exc()
         jobs[job_id]['status'] = 'failed'
         jobs[job_id]['error'] = str(e)
-        notify_backend(job_id, 'failed', error=str(e))  # 🆕 ADD THIS LINE
+        notify_backend(job_id, 'failed', error=str(e))
     
     finally:
+        # Clean up temp file
         try:
             if os.path.exists(video_path):
                 os.remove(video_path)
@@ -348,6 +376,7 @@ if __name__ == '__main__':
     
     port = int(os.environ.get('PORT', 5001))
     app.run(debug=False, host='0.0.0.0', port=port)
+
 
 
 
