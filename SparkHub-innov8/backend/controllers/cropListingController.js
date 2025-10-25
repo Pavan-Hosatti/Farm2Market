@@ -47,21 +47,17 @@ exports.submitForGrading = async (req, res) => {
         console.log('\n🔄 ===== SUBMITTING JOB TO ML SERVICE (ASYNC) =====');
         
         let job_id = null;
+try {
+    // Create form data
+    const formData = new FormData();
+    const fileStream = fs.createReadStream(path.resolve(videoPath));
+    
+    formData.append('video', fileStream, {
+        filename: req.file.originalname,
+        contentType: req.file.mimetype
+    });
+    formData.append('cropType', (crop || '').toLowerCase());
 
-        try {
-            // 🔧 FIX 1: Create form data with proper buffer handling
-            const formData = new FormData();
-            
-            // Read file into buffer first (prevents stream abortion)
-            const fileBuffer = fs.readFileSync(videoPath);
-            const fileStats = fs.statSync(videoPath);
-            
-            formData.append('video', fileBuffer, {
-                filename: req.file.originalname,
-                contentType: req.file.mimetype,
-                knownLength: fileStats.size
-            });
-            formData.append('cropType', (crop || '').toLowerCase());
 
             const mlUrl = `${ML_SERVICE_URL}/api/ml/submit`; 
             
