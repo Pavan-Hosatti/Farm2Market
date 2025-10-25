@@ -67,21 +67,15 @@ try {
             // 🔧 FIX 2: Increased timeout and better error handling
             console.log('⏳ Sending job submission request to ML service...');
             
-            const mlResponse = await axios.post(mlUrl, formData, {
-                headers: {
-                    ...formData.getHeaders(),
-                    'Content-Length': formData.getLengthSync()
-                },
-                timeout: 120000, // 🔧 Increased to 2 minutes for upload
-                maxContentLength: 100 * 1024 * 1024, // 100MB
-                maxBodyLength: 100 * 1024 * 1024, // 100MB
-                validateStatus: (status) => status < 500,
-                // 🔧 FIX 3: Better error handling
-                onUploadProgress: (progressEvent) => {
-                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                    console.log(`📤 Upload Progress: ${percentCompleted}%`);
-                }
-            });
+   const mlResponse = await axios.post(mlUrl, formData, {
+    headers: {
+        ...formData.getHeaders()
+    },
+    timeout: 30000, 
+    maxContentLength: Infinity,
+    maxBodyLength: Infinity,
+    validateStatus: (status) => status < 500
+});
             
             // 6. PROCESS ASYNC ML RESPONSE
             if (mlResponse.status === 202 && mlResponse.data.job_id) {
