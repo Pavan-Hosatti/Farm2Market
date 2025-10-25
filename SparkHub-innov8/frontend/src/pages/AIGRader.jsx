@@ -113,46 +113,53 @@ const AIGrader = () => {
         setSubmissionMessage({ type: '', text: '' });
     };
 
-    const pollJobStatus = async (jobId, cropListingId) => {
-        let status = 'pending';
-        const POLL_INTERVAL_MS = 10000;
-        
-        setSubmissionMessage({ 
-            type: 'info', 
-            text: t('messages.pollingStatus', { jobId }) 
-        });
+   const pollJobStatus = async (jobId, cropListingId) => {
+    let status = 'pending';
+    const POLL_INTERVAL_MS = 3000; // Check every 3 seconds
+    const MAX_POLLS = 60; // Stop after 3 minutes
+    let pollCount = 0;
+    
+    setSubmissionMessage({ 
+        type: 'info', 
+        text: `Grading in progress... Job ID: ${jobId}` 
+    });
 
-        console.log(`📡 Starting polling for Job ID: ${jobId}`);
+    console.log(`📡 Starting polling for Job ID: ${jobId}`);
 
-        while (status !== 'completed' && status !== 'failed') {
-            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS)); 
-
-            try {
-                const statusResponse = await axios.get(
-                    `${API_BASE_URL}/crops/grading-status/${jobId}`,
-                    { timeout: 20000 }
-                );
-                
-                status = statusResponse.data.status;
-                console.log(`Polling status: ${status}`);
-
-                if (status === 'completed') {
-                    return statusResponse.data.result; 
-                } else if (status === 'failed') {
-                    throw new Error(statusResponse.data.error || t('errors.gradingFailed'));
-                }
-
-                setSubmissionMessage({ 
-                    type: 'info', 
-                    text: t('messages.jobStatus', { status: status, jobId: jobId }) 
-                });
-
-            } catch (error) {
-                console.error('Polling error:', error);
-                throw new Error(t('errors.statusCheckFailed', { error: error.message }));
-            }
+    while (status === 'pending' || status === 'processing') {
+        if (pollCount >= MAX_POLLS) {
+            throw new Error('Grading timeout - please check status later');
         }
-    };
+        
+        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+        pollCount++;
+
+        try {
+            const statusResponse = await axios.get(
+                `${API_BASE_URL}/crops/grading-status/${jobId}`,
+                { timeout: 10000 }
+            );
+            
+            status = statusResponse.data.status;
+            console.log(`Poll ${pollCount}: status = ${status}`);
+
+            if (status === 'completed') {
+                return statusResponse.data.result;
+            } else if (status === 'failed') {
+                throw new Error(statusResponse.data.error || 'Grading failed');
+            }
+
+            setSubmissionMessage({ 
+                type: 'info', 
+                text: `Processing... (${pollCount * 3}s elapsed)` 
+            });
+
+        } catch (error) {
+            console.error('Polling error:', error);
+            throw new Error(`Status check failed: ${error.message}`);
+        }
+    }
+};
 
     const handleSubmit = async () => {
         if (!formData.quantityKg || !formData.pricePerKg || !formData.location) {
@@ -715,5 +722,3 @@ const AIGrader = () => {
 };
 
 export default AIGrader;
-
-
