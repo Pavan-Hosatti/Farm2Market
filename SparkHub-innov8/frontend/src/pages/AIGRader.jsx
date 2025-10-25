@@ -113,10 +113,10 @@ const AIGrader = () => {
         setSubmissionMessage({ type: '', text: '' });
     };
 
-   const pollJobStatus = async (jobId, cropListingId) => {
+ const pollJobStatus = async (jobId, cropListingId) => {
     let status = 'pending';
-    const POLL_INTERVAL_MS = 3000; // Check every 3 seconds
-    const MAX_POLLS = 60; // Stop after 3 minutes
+    const POLL_INTERVAL_MS = 10000; // Check every 10 seconds
+    const MAX_POLLS = 30; // Stop after 5 minutes
     let pollCount = 0;
     
     setSubmissionMessage({ 
@@ -722,4 +722,5 @@ const AIGrader = () => {
 };
 
 export default AIGrader;
+
 
