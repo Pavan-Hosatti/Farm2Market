@@ -266,3 +266,61 @@ exports.getFarmersListings = async (req, res) => {
         });
     }
 };
+
+exports.updateGradeFromML = async (req, res) => {
+    console.log('\n🔔 ===== ML GRADING COMPLETION WEBHOOK =====');
+    
+    try {
+        const { job_id, status, result, error } = req.body;
+        
+        if (!job_id) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'job_id is required' 
+            });
+        }
+
+        const crop = await CropListing.findOne({ mlJobId: job_id });
+        
+        if (!crop) {
+            console.log(`⚠️ No crop found for job_id: ${job_id}`);
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Crop listing not found for this job' 
+            });
+        }
+
+        if (status === 'completed' && result) {
+            crop.status = 'graded';
+            crop.grade = result.grade;
+            crop.qualityScore = result.confidence;
+            crop.gradeDetails = {
+                overall_confidence: result.overall_confidence,
+                grade_breakdown: result.grade_breakdown,
+                frames_analyzed: result.frames_analyzed
+            };
+            
+            console.log(`✅ Updated crop ${crop._id} with grade: ${result.grade}`);
+        } else if (status === 'failed') {
+            crop.status = 'grading_failed';
+            crop.gradeDetails = { error: error || 'Grading failed' };
+            
+            console.log(`❌ Marked crop ${crop._id} as failed: ${error}`);
+        }
+
+        await crop.save();
+        
+        res.status(200).json({ 
+            success: true, 
+            message: 'Crop updated successfully',
+            cropId: crop._id 
+        });
+
+    } catch (error) {
+        console.error('❌ Error in webhook:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
+    }
+};
