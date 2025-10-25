@@ -14,6 +14,13 @@ app = Flask(__name__)
 CORS(app)
 
 # ============================================
+# 🔧 FIX: FLASK CONFIGURATIONS FOR LARGE FILES
+# ============================================
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max file size
+app.config['UPLOAD_TIMEOUT'] = 300  # 5 minutes timeout
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+
+# ============================================
 # CONFIGURATION
 # ============================================
 TEMP_FRAMES_FOLDER = 'temp_frames'
@@ -34,8 +41,11 @@ print("="*50)
 
 for crop, path in MODEL_PATHS.items():
     if os.path.exists(path):
-        MODELS[crop] = YOLO(path)
-        print(f"✓ Loaded model for {crop}")
+        try:
+            MODELS[crop] = YOLO(path)
+            print(f"✓ Loaded model for {crop}")
+        except Exception as e:
+            print(f"✗ Error loading model for {crop}: {str(e)}")
     else:
         print(f"✗ Model not found for {crop} at {path}")
 
@@ -52,33 +62,53 @@ jobs = {}  # {job_id: {'status': 'pending/processing/completed/failed', 'result'
 # HELPER FUNCTIONS
 # ============================================
 
-def extract_frames(video_path, sample_rate=60, max_frames=7):  # Only 10 frames
-    # This will be much faster on free tier
-    cap = cv2.VideoCapture(video_path)
-    frames = []
-    frame_count = 0
-    
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
+def extract_frames(video_path, sample_rate=60, max_frames=7):
+    """Extract frames from video with error handling"""
+    try:
+        if not os.path.exists(video_path):
+            raise FileNotFoundError(f"Video file not found: {video_path}")
         
-        if frame_count % sample_rate == 0:
-            frames.append(frame)
+        cap = cv2.VideoCapture(video_path)
         
-        frame_count += 1
+        if not cap.isOpened():
+            raise ValueError(f"Cannot open video file: {video_path}")
         
-        if len(frames) >= max_frames:
-            break
-    
-    cap.release()
-    print(f"📊 Extracted {len(frames)} frames from {total_frames} total frames")
-    return frames
+        frames = []
+        frame_count = 0
+        
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        
+        print(f"📊 Video info: {total_frames} frames, {fps:.2f} FPS")
+        
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            
+            if frame_count % sample_rate == 0:
+                frames.append(frame)
+            
+            frame_count += 1
+            
+            if len(frames) >= max_frames:
+                break
+        
+        cap.release()
+        print(f"📊 Extracted {len(frames)} frames from {total_frames} total frames")
+        
+        if len(frames) == 0:
+            raise ValueError("No frames could be extracted from video")
+        
+        return frames
+        
+    except Exception as e:
+        print(f"❌ Error extracting frames: {str(e)}")
+        raise
 
 
 def predict_grade_from_frames(model, frames):
+    """Predict grade from extracted frames"""
     grade_scores = {'A': [], 'B': [], 'C': []}
     
     print(f"🔍 Analyzing {len(frames)} frames...")
@@ -138,7 +168,6 @@ def predict_grade_from_frames(model, frames):
     }
 
 
-
 def notify_backend(job_id, status, result=None, error=None):
     """Notify Node.js backend about grading completion"""
     BACKEND_URL = os.environ.get('BACKEND_URL', 'http://localhost:5000')
@@ -159,32 +188,35 @@ def notify_backend(job_id, status, result=None, error=None):
             print(f"✅ Backend notified successfully for job {job_id}")
         else:
             print(f"⚠️ Backend notification failed: {response.status_code}")
+            print(f"Response: {response.text}")
             
     except Exception as e:
         print(f"❌ Failed to notify backend: {str(e)}")
-
 
 
 def process_video_async(job_id, video_path, crop_type):
     """
     Background processing function with timeout
     """
-    import signal
-    
-    def timeout_handler(signum, frame):
-        raise TimeoutError("Processing exceeded maximum time limit")
-    
     try:
         print(f"\n{'='*50}")
         print(f"🎬 Background Processing Job: {job_id}")
         print(f"🌾 Crop Type: {crop_type.upper()}")
+        print(f"📁 Video Path: {video_path}")
         print(f"{'='*50}")
         
         jobs[job_id]['status'] = 'processing'
         
+        # Verify file exists
+        if not os.path.exists(video_path):
+            raise FileNotFoundError(f"Video file not found: {video_path}")
+        
+        file_size = os.path.getsize(video_path)
+        print(f"📦 File size: {file_size / (1024*1024):.2f} MB")
+        
         # Extract frames
         print("📹 Starting frame extraction...")
-        frames = extract_frames(video_path, sample_rate=60, max_frames=10)  # Reduced
+        frames = extract_frames(video_path, sample_rate=60, max_frames=10)
         print(f"📊 Extracted {len(frames)} frames")
         
         if len(frames) == 0:
@@ -226,12 +258,6 @@ def process_video_async(job_id, video_path, crop_type):
         notify_backend(job_id, 'completed', result=jobs[job_id]['result'])
         print("✅ Backend notification sent")
         
-    except TimeoutError as te:
-        print(f"⏱️ TIMEOUT: {str(te)}")
-        jobs[job_id]['status'] = 'failed'
-        jobs[job_id]['error'] = 'Processing timeout - video too large or complex'
-        notify_backend(job_id, 'failed', error='Processing timeout')
-        
     except Exception as e:
         print(f"❌ Error in background processing: {str(e)}")
         import traceback
@@ -248,8 +274,10 @@ def process_video_async(job_id, video_path, crop_type):
                 print(f"🗑️ Cleaned up temp file: {video_path}")
         except Exception as cleanup_error:
             print(f"⚠️ Could not delete temp file: {cleanup_error}")
+
+
 # ============================================
-# API ENDPOINTS (NEW ASYNC PATTERN)
+# API ENDPOINTS (ASYNC PATTERN)
 # ============================================
 
 @app.route('/api/ml/submit', methods=['POST'])
@@ -259,11 +287,21 @@ def submit_job():
     Returns job_id immediately
     """
     try:
+        print(f"\n{'='*50}")
+        print(f"📥 RECEIVED JOB SUBMISSION REQUEST")
+        print(f"{'='*50}")
+        
         if 'video' not in request.files:
+            print("❌ No video file in request")
             return jsonify({'error': 'No video file uploaded'}), 400
         
         video_file = request.files['video']
         crop_type = request.form.get('cropType', 'tomato').lower()
+        
+        print(f"📊 File details:")
+        print(f"  - Filename: {video_file.filename}")
+        print(f"  - Content Type: {video_file.content_type}")
+        print(f"  - Crop Type: {crop_type}")
         
         if video_file.filename == '':
             return jsonify({'error': 'No video file selected'}), 400
@@ -274,30 +312,57 @@ def submit_job():
         # Generate unique job ID
         job_id = str(uuid.uuid4())
         
-        # Save uploaded file temporarily
+        # 🔧 FIX: Sanitize filename and create safe path
+        safe_filename = "".join(c for c in video_file.filename if c.isalnum() or c in ('_', '.', '-'))
         temp_video_path = os.path.join(
             TEMP_FRAMES_FOLDER, 
-            f'temp_{job_id}_{video_file.filename}'
+            f'temp_{job_id}_{safe_filename}'
         )
-        video_file.save(temp_video_path)
+        
+        print(f"💾 Saving to: {temp_video_path}")
+        
+        # 🔧 FIX: Save file with better error handling
+        try:
+            video_file.save(temp_video_path)
+            
+            # Verify file was saved
+            if not os.path.exists(temp_video_path):
+                raise IOError("File was not saved properly")
+            
+            file_size = os.path.getsize(temp_video_path)
+            print(f"✅ File saved successfully: {file_size / (1024*1024):.2f} MB")
+            
+            if file_size == 0:
+                raise ValueError("Saved file is empty (0 bytes)")
+                
+        except Exception as save_error:
+            print(f"❌ Error saving file: {save_error}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'error': f'Failed to save file: {str(save_error)}'}), 500
         
         # Initialize job
         jobs[job_id] = {
             'status': 'pending',
             'result': None,
             'error': None,
-            'created_at': datetime.now().isoformat()
+            'created_at': datetime.now().isoformat(),
+            'file_path': temp_video_path,
+            'crop_type': crop_type
         }
         
         # Start background processing
+        print(f"🚀 Starting background thread for job {job_id}")
         thread = threading.Thread(
             target=process_video_async,
-            args=(job_id, temp_video_path, crop_type)
+            args=(job_id, temp_video_path, crop_type),
+            name=f"Job-{job_id[:8]}"
         )
         thread.daemon = True
         thread.start()
         
         print(f"✅ Job {job_id} submitted for processing")
+        print(f"{'='*50}\n")
         
         return jsonify({
             'success': True,
@@ -307,7 +372,9 @@ def submit_job():
         
     except Exception as e:
         print(f"❌ Error submitting job: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e), 'type': type(e).__name__}), 500
 
 
 @app.route('/api/ml/status/<job_id>', methods=['GET'])
@@ -315,23 +382,29 @@ def check_status(job_id):
     """
     Check the status of a job
     """
+    print(f"🔍 Status check for job: {job_id}")
+    
     if job_id not in jobs:
+        print(f"❌ Job not found: {job_id}")
         return jsonify({'error': 'Job not found'}), 404
     
     job = jobs[job_id]
     
     response = {
         'job_id': job_id,
-        'status': job['status']
+        'status': job['status'],
+        'created_at': job.get('created_at')
     }
     
     # Include result if completed
     if job['status'] == 'completed':
         response['result'] = job['result']
+        print(f"✅ Job {job_id} completed: Grade {job['result'].get('grade')}")
     
     # Include error if failed
     if job['status'] == 'failed':
         response['error'] = job['error']
+        print(f"❌ Job {job_id} failed: {job['error']}")
     
     return jsonify(response), 200
 
@@ -339,11 +412,30 @@ def check_status(job_id):
 @app.route('/api/ml/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
+    active_jobs = len([j for j in jobs.values() if j['status'] in ['pending', 'processing']])
+    
     return jsonify({
         'status': 'healthy',
         'models_loaded': list(MODELS.keys()),
         'total_models': len(MODELS),
-        'active_jobs': len([j for j in jobs.values() if j['status'] in ['pending', 'processing']])
+        'active_jobs': active_jobs,
+        'total_jobs': len(jobs),
+        'temp_folder': TEMP_FRAMES_FOLDER,
+        'temp_folder_exists': os.path.exists(TEMP_FRAMES_FOLDER)
+    }), 200
+
+
+@app.route('/api/ml/jobs', methods=['GET'])
+def list_jobs():
+    """List all jobs (for debugging)"""
+    return jsonify({
+        'total_jobs': len(jobs),
+        'jobs': [{
+            'job_id': jid,
+            'status': job['status'],
+            'created_at': job.get('created_at'),
+            'crop_type': job.get('crop_type')
+        } for jid, job in jobs.items()]
     }), 200
 
 
@@ -363,6 +455,26 @@ def predict():
 
 
 # ============================================
+# ERROR HANDLERS
+# ============================================
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    return jsonify({
+        'error': 'File too large',
+        'message': 'Maximum file size is 100MB'
+    }), 413
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({
+        'error': 'Internal server error',
+        'message': str(error)
+    }), 500
+
+
+# ============================================
 # RUN SERVER
 # ============================================
 
@@ -372,11 +484,18 @@ if __name__ == '__main__':
     print("="*50)
     print(f"📍 Running on: http://localhost:5001")
     print(f"🧠 Models: {list(MODELS.keys())}")
+    print(f"📁 Temp folder: {TEMP_FRAMES_FOLDER}")
+    print(f"📦 Max file size: 100MB")
     print("="*50 + "\n")
     
     port = int(os.environ.get('PORT', 5001))
-    app.run(debug=False, host='0.0.0.0', port=port)
-
-
-
-
+    
+    # 🔧 For production, use gunicorn instead
+    # Command: gunicorn app:app --bind 0.0.0.0:5001 --timeout 300 --workers 2
+    
+    app.run(
+        debug=False,  # Set to False in production
+        host='0.0.0.0',
+        port=port,
+        threaded=True  # Enable threading for concurrent requests
+    )
