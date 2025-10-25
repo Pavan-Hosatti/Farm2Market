@@ -52,7 +52,8 @@ jobs = {}  # {job_id: {'status': 'pending/processing/completed/failed', 'result'
 # HELPER FUNCTIONS
 # ============================================
 
-def extract_frames(video_path, sample_rate=30, max_frames=30):
+def extract_frames(video_path, sample_rate=60, max_frames=7):  # Only 10 frames
+    # This will be much faster on free tier
     cap = cv2.VideoCapture(video_path)
     frames = []
     frame_count = 0
@@ -347,5 +348,6 @@ if __name__ == '__main__':
     
     port = int(os.environ.get('PORT', 5001))
     app.run(debug=False, host='0.0.0.0', port=port)
+
 
 
