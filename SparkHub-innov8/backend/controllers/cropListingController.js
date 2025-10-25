@@ -6,7 +6,7 @@ const path = require('path');
 
 // ML Service URL
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:5001';
-
+console.log('🔍 ML_SERVICE_URL:', ML_SERVICE_URL);
 // NOTE: Assume axios, fs, path, FormData, CropListing, and ML_SERVICE_URL are defined/imported
 exports.submitForGrading = async (req, res) => {
     console.log('\n🟢 ===== ASYNC JOB SUBMISSION STARTED =====');
