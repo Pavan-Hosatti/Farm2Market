@@ -8,6 +8,7 @@ from datetime import datetime
 import uuid
 import threading
 from collections import defaultdict
+import requests
 
 app = Flask(__name__)
 CORS(app)
@@ -121,6 +122,33 @@ def predict_grade_from_frames(model, frames):
     }
 
 
+
+def notify_backend(job_id, status, result=None, error=None):
+    """Notify Node.js backend about grading completion"""
+    BACKEND_URL = os.environ.get('BACKEND_URL', 'http://localhost:5000')
+    WEBHOOK_URL = f"{BACKEND_URL}/api/crops/ml-webhook"
+    
+    try:
+        payload = {
+            'job_id': job_id,
+            'status': status,
+            'result': result,
+            'error': error
+        }
+        
+        print(f"📤 Notifying backend at {WEBHOOK_URL}")
+        response = requests.post(WEBHOOK_URL, json=payload, timeout=10)
+        
+        if response.status_code == 200:
+            print(f"✅ Backend notified successfully for job {job_id}")
+        else:
+            print(f"⚠️ Backend notification failed: {response.status_code}")
+            
+    except Exception as e:
+        print(f"❌ Failed to notify backend: {str(e)}")
+
+
+
 def process_video_async(job_id, video_path, crop_type):
     """
     Background processing function
@@ -132,25 +160,22 @@ def process_video_async(job_id, video_path, crop_type):
         print(f"🌾 Crop Type: {crop_type.upper()}")
         print(f"{'='*50}")
         
-        # Update status to processing
         jobs[job_id]['status'] = 'processing'
         
-        # Extract frames
         frames = extract_frames(video_path, sample_rate=30, max_frames=30)
         
         if len(frames) == 0:
             jobs[job_id]['status'] = 'failed'
             jobs[job_id]['error'] = 'No frames could be extracted from video'
+            notify_backend(job_id, 'failed', error='No frames extracted')  # 🆕 ADD THIS LINE
             return
         
-        # Get model and predict
         model = MODELS[crop_type]
         result = predict_grade_from_frames(model, frames)
         
         print(f"✅ Final Grade: {result['grade']} (Confidence: {result['confidence']}%)")
         print(f"{'='*50}\n")
         
-        # Update job with result
         jobs[job_id]['status'] = 'completed'
         jobs[job_id]['result'] = {
             'success': True,
@@ -161,23 +186,24 @@ def process_video_async(job_id, video_path, crop_type):
             'frames_analyzed': result['frames_analyzed']
         }
         
+        # 🆕 ADD THIS LINE
+        notify_backend(job_id, 'completed', result=jobs[job_id]['result'])
+        
     except Exception as e:
         print(f"❌ Error in background processing: {str(e)}")
         import traceback
         traceback.print_exc()
         jobs[job_id]['status'] = 'failed'
         jobs[job_id]['error'] = str(e)
+        notify_backend(job_id, 'failed', error=str(e))  # 🆕 ADD THIS LINE
     
     finally:
-        # Clean up temp file
         try:
             if os.path.exists(video_path):
                 os.remove(video_path)
                 print(f"🗑️ Cleaned up temp file: {video_path}")
         except Exception as cleanup_error:
             print(f"⚠️ Could not delete temp file: {cleanup_error}")
-
-
 # ============================================
 # API ENDPOINTS (NEW ASYNC PATTERN)
 # ============================================
