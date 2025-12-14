@@ -195,3 +195,81 @@ exports.logout = (req, res, next) => {
         message: 'Logged out successfully'
     });
 };
+
+// @desc    Google OAuth Login
+// @route   POST /api/auth/google-login
+// @access  Public
+exports.googleLogin = async (req, res) => {
+    try {
+        const { token } = req.body;
+
+        if (!token) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Google token is required.' 
+            });
+        }
+
+        // 🔥 Verify Google token using Google's tokeninfo endpoint
+        const https = require('https');
+        const verifyUrl = `https://oauth2.googleapis.com/tokeninfo?id_token=${token}`;
+
+        https.get(verifyUrl, (apiRes) => {
+            let data = '';
+            apiRes.on('data', chunk => data += chunk);
+            apiRes.on('end', async () => {
+                try {
+                    const googleUser = JSON.parse(data);
+
+                    // Check if token is valid
+                    if (googleUser.error || !googleUser.email) {
+                        return res.status(401).json({ 
+                            success: false, 
+                            message: 'Invalid Google token.' 
+                        });
+                    }
+
+                    // Check if farmer exists
+                    let farmer = await Farmer.findOne({ email: googleUser.email });
+
+                    if (!farmer) {
+                        // 🔥 Create new farmer account
+                        farmer = await Farmer.create({
+                            name: googleUser.name || googleUser.email.split('@')[0],
+                            email: googleUser.email,
+                            password: 'google-oauth-' + Math.random().toString(36), // Random password
+                            role: 'farmer',
+                            phone: '' // Optional
+                        });
+                        console.log('✅ New Google user registered:', farmer.email);
+                    } else {
+                        console.log('✅ Existing Google user logged in:', farmer.email);
+                    }
+
+                    // Use existing sendAuthResponse helper
+                    sendAuthResponse(farmer, 200, res);
+
+                } catch (err) {
+                    console.error('❌ Google auth processing error:', err);
+                    res.status(500).json({ 
+                        success: false, 
+                        message: 'Failed to process Google login.' 
+                    });
+                }
+            });
+        }).on('error', (err) => {
+            console.error('❌ Google token verification error:', err);
+            res.status(500).json({ 
+                success: false, 
+                message: 'Failed to verify Google token.' 
+            });
+        });
+
+    } catch (err) {
+        console.error('❌ Google login error:', err);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Google login failed.' 
+        });
+    }
+};
