@@ -6,7 +6,7 @@ import { Mic, MicOff, Loader2, Volume2, X, MessageCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import ChatHistory from './ChatHistory';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = 'http://localhost:5000/api';
 
 const VoiceBot = () => {
   const { t } = useTranslation();
@@ -107,70 +107,92 @@ const VoiceBot = () => {
 
   // Process user input and get AI response
 // ...existing code...
-  const processUserInput = async (userText) => {
-    setIsProcessing(true);
-    setError(null);
+// Process user input and get AI response
+const processUserInput = async (userText) => {
+  setIsProcessing(true);
+  setError(null);
 
-    try {
-      console.log('🚀 Sending to backend:', userText);
+  try {
+    console.log('🚀 Sending to backend:', userText);
+    const startTime = Date.now();
 
-      // Format conversation history for API
-      const history = conversation.map(msg => ({
-        role: msg.role === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.text }]
-      }));
+    // Format conversation history for API
+    const history = conversation.map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.text }]
+    }));
 
-      // retrieve token safely (adjust key if your app uses a different key)
-      const token = localStorage.getItem('token') || localStorage.getItem('authToken') || null;
-      const headers = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+    // retrieve token safely
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken') || null;
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const response = await fetch(`${API_BASE_URL}/voice/query`, {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify({
-          text: userText,
-          sessionId: sessionId,
-          conversationHistory: history
-        })
-      });
+    // ✅ ADD TIMEOUT TO FETCH
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-      console.log('📨 Response status:', response.status);
+    const response = await fetch(`${API_BASE_URL}/voice/query`, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      signal: controller.signal, // ✅ Add abort signal
+      body: JSON.stringify({
+        text: userText,
+        sessionId: sessionId,
+        conversationHistory: history
+      })
+    });
 
-      const data = await response.json();
-      console.log('📦 Response data:', data);
+    clearTimeout(timeoutId); // Clear timeout if request succeeds
+    
+    const endTime = Date.now();
+    console.log(`⏱️ Request took ${endTime - startTime}ms`);
+    console.log('📨 Response status:', response.status);
 
-      if (!response.ok) {
-        throw new Error(data.error || data.message || t('Failed to process query'));
-      }
+    const data = await response.json();
+    console.log('📦 Response data:', data);
 
-      if (data.success) {
-        // Add messages to conversation
-        const userMessage = {
-          role: 'user',
-          text: data.data.userText || userText,
-          timestamp: Date.now()
-        };
-
-        const aiMessage = {
-          role: 'assistant',
-          text: data.data.aiText || (data.data.response || ''),
-          timestamp: Date.now()
-        };
-
-        setConversation(prev => [...prev, userMessage, aiMessage]);
-
-        // Speak the response (if available)
-        if (aiMessage.text) speakText(aiMessage.text);
-      }
-    } catch (err) {
-      console.error('❌ API Error:', err);
-      setError(err.message || t('Failed to process query'));
-    } finally {
-      setIsProcessing(false);
+    if (!response.ok) {
+      throw new Error(data.error || data.message || t('Failed to process query'));
     }
-  };
+
+    if (data.success) {
+      // Add messages to conversation
+      const userMessage = {
+        role: 'user',
+        text: data.data.userText || userText,
+        timestamp: Date.now()
+      };
+
+      const aiMessage = {
+        role: 'assistant',
+        text: data.data.aiText || '', // ✅ Fixed - only use aiText
+        timestamp: Date.now()
+      };
+
+      // ✅ Check if AI response is empty
+      if (!aiMessage.text) {
+        throw new Error('No response from AI');
+      }
+
+      setConversation(prev => [...prev, userMessage, aiMessage]);
+
+      // Speak the response
+      speakText(aiMessage.text);
+    }
+  } catch (err) {
+    console.error('❌ API Error:', err);
+    
+    // ✅ Better error messages
+    if (err.name === 'AbortError') {
+      setError(t('Request timeout - AI is taking too long to respond'));
+    } else {
+      setError(err.message || t('Failed to process query'));
+    }
+  } finally {
+    setIsProcessing(false);
+  }
+};
 // ...existing code...
 
   // Text-to-Speech using Web Speech API
