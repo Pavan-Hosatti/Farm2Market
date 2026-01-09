@@ -1,16 +1,24 @@
+// routes/cropListingRoutes.js
 const express = require('express');
 const cropListingController = require('../controllers/cropListingController');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
-// --- Multer Configuration ---
-// Destination: 'uploads/' directory inside the backend folder
-// Filename: Use the current timestamp to ensure uniqueness
+// ============================================
+// MULTER CONFIGURATION
+// ============================================
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        // You MUST ensure this 'uploads/' directory exists in your backend root
-        cb(null, 'uploads/'); 
+        const uploadDir = 'uploads/';
+        
+        // Ensure directory exists
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        
+        cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -18,25 +26,40 @@ const storage = multer.diskStorage({
     }
 });
 
-const upload = multer({ storage: storage });
-// ----------------------------
+const upload = multer({ 
+    storage: storage,
+    limits: {
+        fileSize: 100 * 1024 * 1024 // 100MB limit
+    },
+    fileFilter: (req, file, cb) => {
+        // Accept only video files
+        if (file.mimetype.startsWith('video/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only video files are allowed!'), false);
+        }
+    }
+});
 
-// Farmer Submission Route (Handles file upload)
-// 🛑 UPDATED: Field name changed from 'cropFile' to 'video' to match the frontend (AIGrader.jsx)
-router.post('/submit-for-grading', upload.single('video'), cropListingController.submitForGrading); 
+// ============================================
+// ROUTES
+// ============================================
 
+// 🔥 MAIN SUBMISSION ROUTE
+router.post('/submit-for-grading', upload.single('video'), cropListingController.submitForGrading);
 
-router.post('/crops/ml-webhook', cropListingController.updateGradeFromML);
-
-// 🆕 NEW ASYNC ROUTE: Check the status of an ML grading job
-// This route will be called repeatedly by the frontend (polling).
-// It maps to the new controller function you implemented: checkGradingStatus
+// 🔥 STATUS CHECK ROUTE (for polling)
 router.get('/grading-status/:jobId', cropListingController.checkGradingStatus);
-router.post('/crops/ml-webhook', cropListingController.updateGradeFromML);
 
-// Existing Routes
+// 🔥 WEBHOOK ROUTE (called by ML service)
+// ✅ FIX: Changed from '/crops/ml-webhook' to '/ml-webhook'
+// Because this router is already mounted at /api/crops in server.js
+router.post('/ml-webhook', cropListingController.updateGradeFromML);
+
+// 🔥 MARKETPLACE ROUTES
 router.get('/all', cropListingController.getAllCrops);
-router.get('/farmer/:farmerId', cropListingController.getFarmersListings); 
+router.get('/marketplace', cropListingController.getAllCrops); // Alias
+router.get('/farmer/:farmerId', cropListingController.getFarmersListings);
 router.get('/:id', cropListingController.getCropById);
 
 module.exports = router;
