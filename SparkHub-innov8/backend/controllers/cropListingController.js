@@ -87,7 +87,7 @@ exports.submitForGrading = async (req, res) => {
 
         // ✅ STEP 3: SUBMIT TO ML SERVICE
         console.log('\n🤖 Submitting to ML Service...');
-        console.log('📡 URL:', `${ML_SERVICE_URL}/api/ml/submit`);
+       console.log('📡 URL:', `${ML_SERVICE_URL}/submit`);
 
         let job_id = null;
         let mlSubmissionError = null;
@@ -115,7 +115,7 @@ exports.submitForGrading = async (req, res) => {
             console.log('🌾 Crop Type:', crop.toLowerCase());
 
             const mlResponse = await axios.post(
-                `${ML_SERVICE_URL}/api/ml/submit`,
+               `${ML_SERVICE_URL}/submit`, 
                 formData,
                 {
                     headers: {
@@ -328,7 +328,7 @@ exports.checkGradingStatus = async (req, res) => {
         }
         
         // Query ML service
-        const mlStatusUrl = `${ML_SERVICE_URL}/api/ml/status/${jobId}`;
+      const mlStatusUrl = `${ML_SERVICE_URL}/status/${jobId}`;
         console.log(`📡 Checking ML service: ${mlStatusUrl}`);
         
         const mlResponse = await axios.get(mlStatusUrl, {
