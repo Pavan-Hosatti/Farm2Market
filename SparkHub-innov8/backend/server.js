@@ -1,9 +1,17 @@
+if (!process.env.NODE_ENV) {
+    process.env.NODE_ENV = 'development';
+}
+console.log(`🔧 Environment forced to: ${process.env.NODE_ENV}`);
+
+
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const path = require('path');
 const fs = require('fs');
+const mapRoutes = require('./routes/marketplace.routes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -23,14 +31,17 @@ console.log(`🤖 ML Service URL: ${ML_SERVICE_URL}`);
 // 🔧 COMPREHENSIVE CORS CONFIGURATION
 const allowedOrigins = process.env.NODE_ENV === 'production'
     ? [
+        // Add localhost for testing deployed backend with local frontend
+        'http://localhost:5173',
+        'http://localhost:5174',
         'https://farm2-market-ashen.vercel.app',
-        // ✅ ADDED NEW VERCELL DOMAINS FROM USER IMAGE
         'https://farm2-market-git-main-pavan-hosattis-projects.vercel.app',
         'https://farm2-market-4o7xt0kgz-pavan-hosattis-projects.vercel.app',
-        process.env.ML_SERVICE_URL // Allow ML service in production
-      ].filter(Boolean) // Remove undefined values
+        process.env.ML_SERVICE_URL
+      ].filter(Boolean)
     : [
         'http://localhost:5173',
+        'http://localhost:5174',
         'http://localhost:5001',
         'http://127.0.0.1:5173',
         'http://127.0.0.1:5001'
@@ -57,6 +68,15 @@ const corsOptions = {
 
 
 app.use(cors(corsOptions));
+
+
+
+
+
+          
+
+
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -150,6 +170,9 @@ if (cropListingRoutes) app.use('/api/crops', cropListingRoutes);
 if (bidRoutes) app.use('/api/bids', bidRoutes);
 if (voiceRoutes) app.use('/api/voice', voiceRoutes);
 if (predictRoutes) app.use('/api/predict', predictRoutes);
+
+app.use('/api/map', mapRoutes);
+
 
 console.log('📋 Mounted routes:');
 console.log('   - GET /');
