@@ -1,215 +1,204 @@
-// services/voiceService.js - Context-Aware Voice Bot
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+// services/voiceService.js - Using DIRECT API calls (bypassing buggy SDK)
+require('dotenv').config();
+const axios = require('axios');
 const CropListing = require('../models/CropListing');
 const Bid = require('../models/Bid');
 const Farmer = require('../models/Farmer');
 
-let genAI;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-try {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is not defined.");
-  }
-  genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-} catch (error) {
-  console.error('FATAL ERROR: Could not initialize Gemini client.', error.message);
-  throw error;
+if (!GEMINI_API_KEY) {
+  console.error('❌ GEMINI_API_KEY not found');
+  throw new Error('GEMINI_API_KEY is required');
 }
 
+console.log('✅ API Key loaded:', GEMINI_API_KEY.substring(0, 10) + '...');
+
+let lastRequestTime = 0;
+const MIN_REQUEST_INTERVAL = 6000;
+const requestCount = { count: 0, resetTime: Date.now() + 60000 };
+const MAX_REQUESTS_PER_MINUTE = 10;
+
 class VoiceService {
-  /**
-   * Fetch farmer's data from database
-   */
   async getFarmerContext(userId) {
     try {
       if (!userId || userId === 'anonymous') {
-        return {
-          error: 'User not logged in',
-          context: 'ದಯವಿಟ್ಟು ಮೊದಲು ಲಾಗಿನ್ ಆಗಿ (Please login first)'
-        };
+        return { success: false, context: null };
       }
 
-      // Fetch farmer details
-      const farmer = await Farmer.findById(userId).select('name email');
+      const farmer = await Farmer.findById(userId).select('name').lean();
+      if (!farmer) return { success: false, context: null };
       
-      // Fetch all crops by this farmer
       const crops = await CropListing.find({ farmerId: userId })
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .select('crop quantityKg pricePerKg status')
+        .lean();
       
-      // Fetch all bids on farmer's crops
       const cropIds = crops.map(c => c._id);
       const bids = await Bid.find({ cropListingId: { $in: cropIds } })
-        .populate('buyerId', 'name')
-        .sort({ bidAmount: -1 });
+        .sort({ bidAmount: -1 })
+        .limit(20)
+        .select('bidAmount bidStatus')
+        .lean();
 
-      // Calculate statistics
       const totalCrops = crops.length;
-      const activeCrops = crops.filter(c => c.status === 'active' || c.status === 'bidding').length;
+      const activeCrops = crops.filter(c => c.status === 'active').length;
       const soldCrops = crops.filter(c => c.status === 'sold').length;
-      const pendingGrading = crops.filter(c => c.status === 'pending_grading').length;
-      
       const totalBids = bids.length;
       const wonBids = bids.filter(b => b.bidStatus === 'won').length;
-      
-      // Revenue calculation (from won bids)
-      const totalRevenue = bids
-        .filter(b => b.bidStatus === 'won')
-        .reduce((sum, bid) => sum + bid.bidAmount, 0);
+      const totalRevenue = bids.filter(b => b.bidStatus === 'won').reduce((sum, b) => sum + b.bidAmount, 0);
 
-      // Prepare context for AI
-      const context = {
-        farmerName: farmer?.name || 'Farmer',
-        totalCrops,
-        activeCrops,
-        soldCrops,
-        pendingGrading,
-        totalBids,
-        wonBids,
-        totalRevenue,
-        recentCrops: crops.slice(0, 5).map(c => ({
-          crop: c.crop,
-          quantity: c.quantityKg,
-          price: c.pricePerKg,
-          status: c.status,
-          grade: c.grade,
-          qualityScore: c.qualityScore
-        })),
-        topBids: bids.slice(0, 5).map(b => ({
-          cropId: b.cropListingId,
-          bidAmount: b.bidAmount,
-          status: b.bidStatus,
-          buyerName: b.buyerId?.name
-        }))
-      };
-
-      // Create summary text in Kannada
-      const summaryText = `
-ರೈತ ಹೆಸರು: ${context.farmerName}
-ಒಟ್ಟು ಬೆಳೆಗಳು: ${totalCrops}
-ಮಾರಾಟಕ್ಕಿರುವ ಬೆಳೆಗಳು: ${activeCrops}
-ಮಾರಾಟವಾದ ಬೆಳೆಗಳು: ${soldCrops}
-ಗ್ರೇಡಿಂಗ್ ಬಾಕಿ ಇರುವ ಬೆಳೆಗಳು: ${pendingGrading}
-ಒಟ್ಟು ಬಿಡ್‌ಗಳು: ${totalBids}
-ಗೆದ್ದ ಬಿಡ್‌ಗಳು: ${wonBids}
-ಒಟ್ಟು ಆದಾಯ: ₹${totalRevenue}
-
-ಇತ್ತೀಚಿನ ಬೆಳೆಗಳು:
-${context.recentCrops.map((c, i) => `${i+1}. ${c.crop} - ${c.quantity}kg @ ₹${c.price}/kg (${c.status})`).join('\n')}
-
-ಅತ್ಯುತ್ತಮ ಬಿಡ್‌ಗಳು:
-${context.topBids.map((b, i) => `${i+1}. ₹${b.bidAmount} - ${b.status} ${b.buyerName ? `(${b.buyerName})` : ''}`).join('\n')}
-`;
-
-      return {
-        success: true,
-        context: summaryText,
-        data: context
-      };
-
-    } catch (error) {
-      console.error('Error fetching farmer context:', error);
-      return {
-        error: error.message,
-        context: 'ಡೇಟಾ ತರಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ (Could not fetch data)'
-      };
-    }
-  }
-
-  /**
-   * Process text with Gemini AI with farmer's context
-   */
-  async processWithGemini(text, conversationHistory = [], farmerContext = null) {
-    try {
-      if (!genAI) throw new Error("Gemini client not initialized.");
-      
-      console.log('Processing with Gemini:', text);
-      
-      // Build system instruction with context
-      let systemInstruction = `You are a helpful AI assistant for Farm2Market, a platform connecting farmers directly with customers in Karnataka, India.
-
-**CRITICAL: You MUST respond ONLY in Kannada language (ಕನ್ನಡ). Never respond in English.**
-
-You help farmers with:
-- ಬೆಳೆ ಪಟ್ಟಿಗಳು ಮತ್ತು ಬೆಲೆಗಳು (Crop listings and prices)
-- ಬಿಡ್‌ಗಳ ಮೇಲ್ವಿಚಾರಣೆ (Monitoring bids)
-- ಮಾರಾಟ ಮತ್ತು ಆದಾಯ ಟ್ರ್ಯಾಕಿಂಗ್ (Sales and revenue tracking)
-- ಕೃಷಿ ಮಾಹಿತಿ (Farming information)
-- ಮಾರುಕಟ್ಟೆ ಪ್ರವೃತ್ತಿಗಳು (Market trends)
-
-`;
-
-      // Add farmer's context if available
-      if (farmerContext) {
-        systemInstruction += `\n**FARMER'S CURRENT DATA:**\n${farmerContext}\n\n`;
-        systemInstruction += `Use this data to answer the farmer's questions accurately. When they ask about "my crops" or "my bids", refer to the data above.\n\n`;
+      let context = '';
+      if (totalCrops > 0) {
+        context = `ರೈತ: ${farmer.name}, ಬೆಳೆಗಳು: ${totalCrops}, ಮಾರಾಟಕ್ಕಿರುವವು: ${activeCrops}, ಮಾರಾಟವಾದವು: ${soldCrops}, ಬಿಡ್‌ಗಳು: ${totalBids}, ಆದಾಯ: ₹${totalRevenue}`;
       }
 
-      systemInstruction += `Always respond naturally and helpfully in Kannada. Keep responses concise (2-4 sentences) and practical. Use simple Kannada that farmers can understand.`;
-
-      const model = genAI.getGenerativeModel({ 
-        model: 'gemini-2.0-flash-exp',
-        systemInstruction: systemInstruction
-      });
-
-      // Convert history to Gemini format
-      const formattedHistory = conversationHistory.map(msg => ({
-        role: msg.role,
-        parts: [{ text: msg.content }]
-      }));
-
-      const chat = model.startChat({
-        history: formattedHistory,
-      });
-
-      const result = await chat.sendMessage(text);
-      const responseText = result.response.text();
-
-      console.log('Gemini response:', responseText);
-
-      return {
-        success: true,
-        text: responseText
-      };
+      return { success: true, context: context || null };
     } catch (error) {
-      console.error('Error processing with Gemini:', error);
-      return {
-        success: false,
-        error: error.message,
-        text: 'ಕ್ಷಮಿಸಿ, ನಾನು ಈಗ ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ.' // Sorry, I cannot process your question right now
-      };
+      console.error('❌ Context error:', error);
+      return { success: false, context: null };
     }
   }
 
-  /**
-   * Process text query with user context
-   */
+  async processWithGemini(text, conversationHistory = [], farmerContext = null) {
+    try {
+      // Rate limiting
+      const now = Date.now();
+      
+      if (now > requestCount.resetTime) {
+        requestCount.count = 0;
+        requestCount.resetTime = now + 60000;
+      }
+      
+      if (requestCount.count >= MAX_REQUESTS_PER_MINUTE) {
+        const waitTime = requestCount.resetTime - now;
+        console.log(`⏳ Rate limit hit. Waiting ${Math.ceil(waitTime/1000)}s...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        requestCount.count = 0;
+        requestCount.resetTime = Date.now() + 60000;
+      }
+      
+      const timeSinceLastRequest = now - lastRequestTime;
+      if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+        const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+      
+      lastRequestTime = Date.now();
+      requestCount.count++;
+
+      // Build prompt
+      let systemPrompt = `You are a helpful AI for Farm2Market platform in Karnataka.
+CRITICAL: Respond ONLY in Kannada (ಕನ್ನಡ). Never use English.
+Help farmers with crops, bids, sales, and farming questions.`;
+
+      if (farmerContext) {
+        systemPrompt += `\n\nFARMER'S DATA:\n${farmerContext}\n\nUse this when they ask about their data.`;
+      }
+
+      systemPrompt += `\n\nKeep responses short (2-3 sentences) in simple Kannada.`;
+
+      // Build messages
+      const messages = [
+        { role: 'user', parts: [{ text: systemPrompt }] },
+        { role: 'model', parts: [{ text: 'ಅರ್ಥವಾಯಿತು. ನಾನು ಕನ್ನಡದಲ್ಲಿ ಸಹಾಯ ಮಾಡುತ್ತೇನೆ.' }] }
+      ];
+
+      // Add conversation history (last 10 messages)
+      const limitedHistory = conversationHistory.slice(-10);
+      for (const msg of limitedHistory) {
+        messages.push({
+          role: msg.role === 'user' ? 'user' : 'model',
+          parts: [{ text: msg.content }]
+        });
+      }
+
+      // Add current question
+      messages.push({ role: 'user', parts: [{ text: text }] });
+
+      // ✅ DIRECT API CALL - Use CURRENT working models (Dec 2024)
+      const modelsToTry = [
+        { url: 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent', name: 'gemini-2.5-flash' },
+        { url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', name: 'gemini-2.5-flash (v1beta)' },
+        { url: 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent', name: 'gemini-2.0-flash' },
+        { url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', name: 'gemini-2.0-flash (v1beta)' }
+      ];
+
+      let lastError = null;
+
+      for (const model of modelsToTry) {
+        try {
+          console.log(`🔄 Trying: ${model.name}`);
+          
+          const response = await axios.post(
+            `${model.url}?key=${GEMINI_API_KEY}`,
+            {
+              contents: messages.map(msg => ({
+                role: msg.role,
+                parts: msg.parts
+              }))
+            },
+            {
+              headers: { 'Content-Type': 'application/json' },
+              timeout: 30000
+            }
+          );
+
+          const responseText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          
+          if (responseText) {
+            console.log(`✅ Success with ${model.name}`);
+            return { success: true, text: responseText };
+          }
+
+        } catch (error) {
+          console.log(`❌ ${model.name} failed:`, error.response?.data?.error?.message || error.message);
+          lastError = error;
+          continue;
+        }
+      }
+
+      // All models failed
+      throw lastError || new Error('All models failed');
+
+    } catch (error) {
+      console.error('❌ Gemini error:', error.response?.data || error.message);
+      
+      let errorMessage = 'ಕ್ಷಮಿಸಿ, ನಾನು ಈಗ ಉತ್ತರಿಸಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ.';
+      const errorStr = error.response?.data?.error?.message || error.message || '';
+      
+      if (errorStr.includes('429') || errorStr.includes('quota') || errorStr.includes('Too Many Requests')) {
+        const retryMatch = errorStr.match(/retry in (\d+\.?\d*)/i);
+        const seconds = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) : 30;
+        errorMessage = `API ಮಿತಿ ತಲುಪಿದೆ. ${seconds} ಸೆಕೆಂಡ್ ನಂತರ ಪ್ರಯತ್ನಿಸಿ.`;
+      } else if (errorStr.includes('404')) {
+        errorMessage = 'AI ಸೇವೆ ಲಭ್ಯವಿಲ್ಲ. API ಕೀ ಪರಿಶೀಲಿಸಿ.';
+      }
+      
+      return { success: false, error: errorStr, text: errorMessage };
+    }
+  }
+
   async processTextQuery(userText, conversationHistory = [], userId = null) {
     try {
-      console.log('Processing text query:', userText);
-      console.log('User ID:', userId);
-
-      // Fetch farmer's context from database
       const contextResult = await this.getFarmerContext(userId);
-      
       const farmerContext = contextResult.success ? contextResult.context : null;
 
-      // Process with Gemini
-      const aiResponse = await this.processWithGemini(
-        userText,
-        conversationHistory,
-        farmerContext
-      );
+      const aiResponse = await this.processWithGemini(userText, conversationHistory, farmerContext);
 
       return {
-        success: true,
+        success: aiResponse.success,
         userText: userText,
         aiText: aiResponse.text,
+        error: aiResponse.error
       };
     } catch (error) {
-      console.error('Error in text query processing:', error);
+      console.error('❌ Query error:', error);
       return {
         success: false,
-        error: error.message
+        error: error.message,
+        aiText: 'ತಾಂತ್ರಿಕ ದೋಷ ಸಂಭವಿಸಿದೆ.'
       };
     }
   }
