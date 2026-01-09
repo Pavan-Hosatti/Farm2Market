@@ -4,10 +4,18 @@ import axios from 'axios';
 import {
     Sun, Moon, Bell, Layers, Zap, Crown, CheckCircle, ChevronsRight,
     MapPin, Leaf, Weight, DollarSign, Info, BarChart2, ScatterChart, XCircle, AlertTriangle,
-    Target, Aperture, Users, ShieldOff, Video, Package, Truck, Clock, User, Phone, Navigation, CheckCircle2
+    Target, Aperture, Users, ShieldOff, Video, Package, Truck, Clock, User, Phone, Navigation, CheckCircle2,
+    Trash2, Brain, TrendingUp, BarChart3, Target as TargetIcon, Users as UsersIcon,
+    Shield, Activity, Percent, Award, Thermometer, Clock as ClockIcon, Zap as ZapIcon,
+    TrendingDown, DollarSign as DollarSignIcon, PieChart as PieChartIcon
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { 
+    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    BarChart, Bar, PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis,
+    PolarRadiusAxis, Radar, AreaChart, Area, Legend, ComposedChart
+} from 'recharts';
+import MapView from './MapView'
 
 // constants
 const MIN_BID_RANGE = 1.0;
@@ -142,15 +150,279 @@ const PriceLineChart = ({ history, isDarkMode, t }) => (
     </ResponsiveContainer>
 );
 
-const ScatterPlot = ({ data, isDarkMode, color, t }) => (
-    <div className='flex items-center justify-center h-full' style={{ color }}>
-        <ScatterChart className='w-8 h-8 mr-2' />
-        <p className='text-sm'>{t('[Scatter Plot Placeholder]')}</p>
-    </div>
-);
+// New ML Visualization Components
+const PricePredictionChart = ({ isDarkMode, t }) => {
+    const data = [
+        { name: 'Current', price: 85, prediction: 85 },
+        { name: '1h', price: 87, prediction: 88 },
+        { name: '2h', price: 89, prediction: 90 },
+        { name: '3h', price: 91, prediction: 93 },
+        { name: '4h', price: 93, prediction: 95 },
+        { name: 'Closing', price: 95, prediction: 98 },
+    ];
+    
+    return (
+        <div className={`p-4 rounded-xl ${isDarkMode ? 'bg-gray-800/70' : 'bg-white/90'}`}>
+            <h4 className={`text-lg font-bold mb-4 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>
+                {t('Price Trend Forecast')}
+            </h4>
+            <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#4B5563' : '#E5E7EB'} />
+                    <XAxis dataKey="name" stroke={isDarkMode ? '#9CA3AF' : '#4B5563'} />
+                    <YAxis stroke={isDarkMode ? '#9CA3AF' : '#4B5563'} />
+                    <Tooltip 
+                        contentStyle={{ 
+                            backgroundColor: isDarkMode ? '#1F2937' : '#FFFFFF',
+                            borderColor: isDarkMode ? '#10B981' : '#047857'
+                        }}
+                    />
+                    <Area type="monotone" dataKey="prediction" stroke="#8884d8" fill="#8884d8" fillOpacity={0.3} name={t('Predicted')} />
+                    <Area type="monotone" dataKey="price" stroke="#10B981" fill="#10B981" fillOpacity={0.3} name={t('Actual')} />
+                    <Legend />
+                </AreaChart>
+            </ResponsiveContainer>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className={`p-2 rounded ${isDarkMode ? 'bg-green-900/30' : 'bg-green-100'}`}>
+                    <p className={`text-xs ${isDarkMode ? 'text-green-400' : 'text-green-700'}`}>{t('Confidence')}</p>
+                    <p className="text-lg font-bold">87%</p>
+                </div>
+                <div className={`p-2 rounded ${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-100'}`}>
+                    <p className={`text-xs ${isDarkMode ? 'text-blue-400' : 'text-blue-700'}`}>{t('Volatility')}</p>
+                    <p className="text-lg font-bold">Low</p>
+                </div>
+            </div>
+        </div>
+    );
+};
 
-const SmartFeatureButton = ({ icon: Icon, title, mlInsight, isDarkMode }) => (
-    <div className={`flex flex-col items-center justify-center p-2 rounded-lg cursor-pointer transition-all border ${isDarkMode ? 'bg-gray-700 hover:bg-indigo-900 border-indigo-700/50' : 'bg-indigo-50 hover:bg-indigo-100 border-indigo-300'}`} title={mlInsight.primary.value.replace(/\*\*/g, '').replace(/\n/g, ' ')}>
+const BidOptimizationView = ({ isDarkMode, t }) => {
+    const data = [
+        { bid: 95, winProbability: 15, roi: 8 },
+        { bid: 98, winProbability: 45, roi: 12 },
+        { bid: 101, winProbability: 72, roi: 18 },
+        { bid: 104, winProbability: 85, roi: 22 },
+        { bid: 107, winProbability: 63, roi: 15 },
+        { bid: 110, winProbability: 35, roi: 9 },
+    ];
+    
+    return (
+        <div className={`p-4 rounded-xl ${isDarkMode ? 'bg-gray-800/70' : 'bg-white/90'}`}>
+            <h4 className={`text-lg font-bold mb-4 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                {t('Bid Optimization Matrix')}
+            </h4>
+            <ResponsiveContainer width="100%" height={200}>
+                <ComposedChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#4B5563' : '#E5E7EB'} />
+                    <XAxis dataKey="bid" stroke={isDarkMode ? '#9CA3AF' : '#4B5563'} label={{ value: t('Bid Amount (₹)'), position: 'bottom', offset: 0 }} />
+                    <YAxis yAxisId="left" stroke={isDarkMode ? '#9CA3AF' : '#4B5563'} label={{ value: t('Win %'), angle: -90, position: 'insideLeft' }} />
+                    <YAxis yAxisId="right" orientation="right" stroke={isDarkMode ? '#9CA3AF' : '#4B5563'} label={{ value: t('ROI %'), angle: 90, position: 'insideRight' }} />
+                    <Tooltip 
+                        formatter={(value, name) => {
+                            if (name === 'winProbability') return [`${value}%`, t('Win Probability')];
+                            if (name === 'roi') return [`${value}%`, t('ROI')];
+                            return [value, name];
+                        }}
+                        contentStyle={{ 
+                            backgroundColor: isDarkMode ? '#1F2937' : '#FFFFFF',
+                            borderColor: isDarkMode ? '#F59E0B' : '#D97706'
+                        }}
+                    />
+                    <Bar yAxisId="left" dataKey="winProbability" fill="#F59E0B" radius={[4, 4, 0, 0]} name={t('Win Probability')} />
+                    <Line yAxisId="right" type="monotone" dataKey="roi" stroke="#10B981" strokeWidth={2} name={t('ROI')} />
+                </ComposedChart>
+            </ResponsiveContainer>
+            <div className="mt-4 p-3 rounded-lg bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30">
+                <p className={`text-sm font-bold ${isDarkMode ? 'text-yellow-300' : 'text-yellow-800'}`}>
+                    💡 {t('Optimal Bid: ₹104/kg (85% Win, 22% ROI)')}
+                </p>
+                <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {t('Maximizes win chance while maintaining profitability')}
+                </p>
+            </div>
+        </div>
+    );
+};
+
+const CompetitionAnalysis = ({ isDarkMode, t }) => {
+    const competitors = [
+        { name: 'Buyer A', activity: 85, avgBid: 98, winRate: 45, aggression: 72 },
+        { name: 'Buyer B', activity: 72, avgBid: 102, winRate: 38, aggression: 85 },
+        { name: 'Buyer C', activity: 63, avgBid: 96, winRate: 52, aggression: 68 },
+        { name: 'You', activity: 91, avgBid: 104, winRate: 65, aggression: 78 },
+    ];
+    
+    return (
+        <div className={`p-4 rounded-xl ${isDarkMode ? 'bg-gray-800/70' : 'bg-white/90'}`}>
+            <h4 className={`text-lg font-bold mb-4 ${isDarkMode ? 'text-red-400' : 'text-red-700'}`}>
+                {t('Competitor Heat Map')}
+            </h4>
+            <ResponsiveContainer width="100%" height={200}>
+                <RadarChart data={competitors}>
+                    <PolarGrid stroke={isDarkMode ? '#4B5563' : '#E5E7EB'} />
+                    <PolarAngleAxis dataKey="name" stroke={isDarkMode ? '#9CA3AF' : '#4B5563'} />
+                    <PolarRadiusAxis stroke={isDarkMode ? '#9CA3AF' : '#4B5563'} />
+                    <Radar name={t('Activity Level')} dataKey="activity" stroke="#EF4444" fill="#EF4444" fillOpacity={0.3} />
+                    <Radar name={t('Win Rate')} dataKey="winRate" stroke="#10B981" fill="#10B981" fillOpacity={0.3} />
+                    <Radar name={t('Aggression')} dataKey="aggression" stroke="#F59E0B" fill="#F59E0B" fillOpacity={0.3} />
+                    <Legend />
+                </RadarChart>
+            </ResponsiveContainer>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+                {competitors.map(comp => (
+                    <div key={comp.name} className={`p-2 rounded ${comp.name === 'You' ? (isDarkMode ? 'bg-green-900/40 border border-green-700' : 'bg-green-100 border border-green-300') : (isDarkMode ? 'bg-gray-700/50' : 'bg-gray-100')}`}>
+                        <div className="flex justify-between items-center">
+                            <span className={`font-bold ${comp.name === 'You' ? (isDarkMode ? 'text-green-400' : 'text-green-700') : (isDarkMode ? 'text-gray-300' : 'text-gray-700')}`}>
+                                {comp.name}
+                            </span>
+                            <span className={`text-xs px-2 py-1 rounded ${comp.winRate > 50 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                {comp.winRate}% {t('Win')}
+                            </span>
+                        </div>
+                        <div className="flex justify-between text-xs mt-1">
+                            <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>
+                                ₹{comp.avgBid}
+                            </span>
+                            <span className={isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}>
+                                {comp.aggression}/100
+                            </span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const HistoricalAnalysisView = ({ isDarkMode, t }) => {
+    const historicalData = [
+        { month: 'Jan', price: 85, volume: 1200, demand: 78 },
+        { month: 'Feb', price: 88, volume: 1450, demand: 82 },
+        { month: 'Mar', price: 82, volume: 1100, demand: 75 },
+        { month: 'Apr', price: 90, volume: 1650, demand: 85 },
+        { month: 'May', price: 95, volume: 1800, demand: 88 },
+        { month: 'Jun', price: 98, volume: 1950, demand: 92 },
+    ];
+    
+    return (
+        <div className={`p-4 rounded-xl ${isDarkMode ? 'bg-gray-800/70' : 'bg-white/90'}`}>
+            <h4 className={`text-lg font-bold mb-4 ${isDarkMode ? 'text-purple-400' : 'text-purple-700'}`}>
+                {t('Market Intelligence Dashboard')}
+            </h4>
+            <ResponsiveContainer width="100%" height={200}>
+                <ComposedChart data={historicalData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#4B5563' : '#E5E7EB'} />
+                    <XAxis dataKey="month" stroke={isDarkMode ? '#9CA3AF' : '#4B5563'} />
+                    <YAxis yAxisId="left" stroke={isDarkMode ? '#9CA3AF' : '#4B5563'} />
+                    <YAxis yAxisId="right" orientation="right" stroke={isDarkMode ? '#9CA3AF' : '#4B5563'} />
+                    <Tooltip 
+                        contentStyle={{ 
+                            backgroundColor: isDarkMode ? '#1F2937' : '#FFFFFF',
+                            borderColor: isDarkMode ? '#8B5CF6' : '#7C3AED'
+                        }}
+                    />
+                    <Legend />
+                    <Bar yAxisId="left" dataKey="volume" fill="#8B5CF6" name={t('Volume (KG)')} />
+                    <Line yAxisId="right" type="monotone" dataKey="price" stroke="#10B981" strokeWidth={2} name={t('Price (₹)')} />
+                    <Line yAxisId="right" type="monotone" dataKey="demand" stroke="#F59E0B" strokeWidth={2} name={t('Demand Index')} />
+                </ComposedChart>
+            </ResponsiveContainer>
+            <div className="mt-4 grid grid-cols-4 gap-2">
+                <div className={`p-2 rounded text-center ${isDarkMode ? 'bg-purple-900/30' : 'bg-purple-100'}`}>
+                    <p className={`text-xs ${isDarkMode ? 'text-purple-400' : 'text-purple-700'}`}>{t('Trend')}</p>
+                    <p className="text-lg font-bold text-green-500">↗</p>
+                </div>
+                <div className={`p-2 rounded text-center ${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-100'}`}>
+                    <p className={`text-xs ${isDarkMode ? 'text-blue-400' : 'text-blue-700'}`}>{t('Seasonality')}</p>
+                    <p className="text-lg font-bold">High</p>
+                </div>
+                <div className={`p-2 rounded text-center ${isDarkMode ? 'bg-green-900/30' : 'bg-green-100'}`}>
+                    <p className={`text-xs ${isDarkMode ? 'text-green-400' : 'text-green-700'}`}>{t('Correlation')}</p>
+                    <p className="text-lg font-bold">0.87</p>
+                </div>
+                <div className={`p-2 rounded text-center ${isDarkMode ? 'bg-yellow-900/30' : 'bg-yellow-100'}`}>
+                    <p className={`text-xs ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>{t('Volatility')}</p>
+                    <p className="text-lg font-bold">12%</p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const RiskAssessmentView = ({ isDarkMode, t }) => {
+    const riskData = [
+        { name: 'Price Volatility', value: 75 },
+        { name: 'Supply Risk', value: 40 },
+        { name: 'Demand Risk', value: 60 },
+        { name: 'Quality Risk', value: 30 },
+        { name: 'Logistics Risk', value: 55 },
+    ];
+    
+    const COLORS = ['#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6'];
+    
+    return (
+        <div className={`p-4 rounded-xl ${isDarkMode ? 'bg-gray-800/70' : 'bg-white/90'}`}>
+            <h4 className={`text-lg font-bold mb-4 ${isDarkMode ? 'text-orange-400' : 'text-orange-700'}`}>
+                {t('Risk Intelligence Panel')}
+            </h4>
+            <div className="flex items-center">
+                <div className="w-1/2">
+                    <ResponsiveContainer width="100%" height={200}>
+                        <PieChart>
+                            <Pie
+                                data={riskData}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                label={(entry) => `${entry.name}: ${entry.value}%`}
+                                outerRadius={80}
+                                fill="#8884d8"
+                                dataKey="value"
+                            >
+                                {riskData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip 
+                                formatter={(value) => [`${value}%`, t('Risk Level')]}
+                                contentStyle={{ 
+                                    backgroundColor: isDarkMode ? '#1F2937' : '#FFFFFF',
+                                    borderColor: isDarkMode ? '#F97316' : '#EA580C'
+                                }}
+                            />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+                <div className="w-1/2 pl-4">
+                    <div className={`p-3 rounded-lg mb-3 ${isDarkMode ? 'bg-red-900/30 border border-red-700' : 'bg-red-100 border border-red-300'}`}>
+                        <div className="flex justify-between items-center">
+                            <span className="font-bold text-red-500">{t('Overall Risk')}</span>
+                            <span className="text-2xl font-bold text-red-500">52%</span>
+                        </div>
+                        <div className="w-full bg-gray-700 rounded-full h-2 mt-2">
+                            <div className="bg-red-500 h-2 rounded-full" style={{ width: '52%' }}></div>
+                        </div>
+                    </div>
+                    <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-yellow-900/30 border border-yellow-700' : 'bg-yellow-100 border border-yellow-300'}`}>
+                        <p className={`text-sm font-bold ${isDarkMode ? 'text-yellow-300' : 'text-yellow-800'}`}>
+                            🛡️ {t('Risk Mitigation')}
+                        </p>
+                        <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            {t('Hedge with futures | Diversify sources | Quality insurance')}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const SmartFeatureButton = ({ icon: Icon, title, mlInsight, isDarkMode, onClick }) => (
+    <div 
+        onClick={onClick}
+        className={`flex flex-col items-center justify-center p-2 rounded-lg cursor-pointer transition-all border ${isDarkMode ? 'bg-gray-700 hover:bg-indigo-900 border-indigo-700/50' : 'bg-indigo-50 hover:bg-indigo-100 border-indigo-300'}`} 
+        title={mlInsight.primary.value.replace(/\*\*/g, '').replace(/\n/g, ' ')}
+    >
         <Icon className={`w-5 h-5 ${isDarkMode ? 'text-indigo-300' : 'text-indigo-600'}`} />
         <span className={`text-xs font-semibold mt-1 text-center ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>{title.split(' ')[0]}</span>
     </div>
@@ -206,6 +478,18 @@ const Marketplace = () => {
     const [selectedOrderId, setSelectedOrderId] = useState(null);
     const [showOrdersView, setShowOrdersView] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState('cash_on_delivery');
+
+    const [cropToDelete, setCropToDelete] = useState(null);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [activeMLView, setActiveMLView] = useState(null);
+
+    // Add this with your other state variables (around line 130-150):
+const [mapListings, setMapListings] = useState([]); // For map view listings
+
+
+    // Add this with your other state declarations (around line 130-150)
+const [showMapView, setShowMapView] = useState(false);
+const [selectedCropType, setSelectedCropType] = useState('');
 
     const selectedCrop = useMemo(() => allCrops.find(c => c._id === selectedCropId), [allCrops, selectedCropId]);
     const selectedOrder = useMemo(() => myOrders.find(o => o.id === selectedOrderId), [myOrders, selectedOrderId]);
@@ -341,6 +625,44 @@ const Marketplace = () => {
         setNotifications([{ message: t('Delivery address saved successfully! You can now place your bid.'), type: 'success' }]);
     }, [newAddress, t]);
 
+    const handleDeleteCrop = useCallback(async () => {
+        if (!cropToDelete) return;
+        
+        try {
+            if (!cropToDelete._id.startsWith('mock_')) {
+                try {
+                    await axios.delete(`${API_BASE_URL}/crops/${cropToDelete._id}`);
+                } catch (error) {
+                    console.warn('Backend delete failed, removing locally only:', error);
+                }
+            }
+            
+            setAllCrops(prev => prev.filter(crop => crop._id !== cropToDelete._id));
+            setAllBids(prev => prev.filter(bid => bid.cropListingId !== cropToDelete._id));
+            
+            if (selectedCropId === cropToDelete._id) {
+                setSelectedCropId(null);
+            }
+            
+            setNotifications([{ 
+                message: t('Crop listing "{{cropName}}" deleted successfully!', { 
+                    cropName: cropToDelete.produce || cropToDelete.crop 
+                }), 
+                type: 'success' 
+            }]);
+            
+        } catch (error) {
+            console.error('Error deleting crop:', error);
+            setNotifications([{ 
+                message: t('Failed to delete crop listing.'), 
+                type: 'error' 
+            }]);
+        } finally {
+            setShowDeleteModal(false);
+            setCropToDelete(null);
+        }
+    }, [cropToDelete, selectedCropId, t]);
+
     useEffect(() => {
         if (selectedCrop) {
             const currentHighest = getCurrentHighestBid(selectedCrop._id, allCrops, allBids);
@@ -362,13 +684,73 @@ const Marketplace = () => {
         const currentHighest = getCurrentHighestBid(selectedCrop._id, allCrops, allBids);
         const minBid = currentHighest + MIN_BID_RANGE;
         return [
-            { icon: Aperture, title: t('Price Prediction'), mlInsight: { primary: { label: t('Predicted Final Price'), value: t('The ML model forecasts a final closing price of **₹{{price}}/kg**.', { price: (selectedCrop.marketPrice * 0.95).toFixed(2) }) } } },
-            { icon: Target, title: t('Bid Optimization'), mlInsight: { primary: { label: t('Optimal Next Bid'), value: t('Recommended Bid: **₹{{bid}}/kg**.', { bid: (minBid + 2).toFixed(2) }) } } },
-            { icon: Users, title: t('Competition Tracker'), mlInsight: { primary: { label: t('Primary Rival Profile'), value: t('Rival A has max bid estimated at **₹{{bid}}/kg**.', { bid: (currentHighest + 5).toFixed(2) }) } } },
-            { icon: ScatterChart, title: t('Historical Analysis'), mlInsight: { primary: { label: t('Value-for-Condition'), value: t('This lot is currently **fairly priced** based on historical data.') } } },
-            { icon: ShieldOff, title: t('Risk Assessment'), mlInsight: { primary: { label: t('Volatility and Win Probability'), value: t('Volatility Score: **4.5/5 (HIGH)**. Current Win Probability: **35%**.') } } },
+            { 
+                icon: Brain, 
+                title: t('Price Prediction'), 
+                mlInsight: { primary: { label: t('Predicted Final Price'), value: t('The ML model forecasts a final closing price of **₹{{price}}/kg**.', { price: (selectedCrop.marketPrice * 0.95).toFixed(2) }) } },
+                view: 'prediction'
+            },
+            { 
+                icon: TargetIcon, 
+                title: t('Bid Optimization'), 
+                mlInsight: { primary: { label: t('Optimal Next Bid'), value: t('Recommended Bid: **₹{{bid}}/kg**.', { bid: (minBid + 2).toFixed(2) }) } },
+                view: 'optimization'
+            },
+            { 
+                icon: UsersIcon, 
+                title: t('Competition Tracker'), 
+                mlInsight: { primary: { label: t('Primary Rival Profile'), value: t('Rival A has max bid estimated at **₹{{bid}}/kg**.', { bid: (currentHighest + 5).toFixed(2) }) } },
+                view: 'competition'
+            },
+            { 
+                icon: BarChart3, 
+                title: t('Market Intel'), 
+                mlInsight: { primary: { label: t('Value-for-Condition'), value: t('This lot is currently **fairly priced** based on historical data.') } },
+                view: 'historical'
+            },
+            { 
+                icon: Shield, 
+                title: t('Risk Assessment'), 
+                mlInsight: { primary: { label: t('Volatility and Win Probability'), value: t('Volatility Score: **4.5/5 (HIGH)**. Current Win Probability: **35%**.') } },
+                view: 'risk'
+            },
+            { 
+                icon: TrendingUp, 
+                title: t('Trend Analysis'), 
+                mlInsight: { primary: { label: t('Market Momentum'), value: t('Strong upward trend detected with 85% confidence.') } },
+                view: 'trend'
+            },
+            { 
+                icon: Activity, 
+                title: t('Real-time AI'), 
+                mlInsight: { primary: { label: t('Live Insights'), value: t('AI detecting unusual bidding patterns in last 5 minutes.') } },
+                view: 'realtime'
+            },
+            { 
+                icon: Percent, 
+                title: t('ROI Calculator'), 
+                mlInsight: { primary: { label: t('Expected Returns'), value: t('Projected ROI: **18-22%** based on current market conditions.') } },
+                view: 'roi'
+            },
         ];
     }, [selectedCrop, allCrops, allBids, t]);
+
+    const renderMLView = () => {
+        switch(activeMLView) {
+            case 'prediction':
+                return <PricePredictionChart isDarkMode={isDarkMode} t={t} />;
+            case 'optimization':
+                return <BidOptimizationView isDarkMode={isDarkMode} t={t} />;
+            case 'competition':
+                return <CompetitionAnalysis isDarkMode={isDarkMode} t={t} />;
+            case 'historical':
+                return <HistoricalAnalysisView isDarkMode={isDarkMode} t={t} />;
+            case 'risk':
+                return <RiskAssessmentView isDarkMode={isDarkMode} t={t} />;
+            default:
+                return null;
+        }
+    };
 
     return (
         <div className={`min-h-screen pt-20 font-sans ${themeClasses.bg}`}>
@@ -578,6 +960,26 @@ const Marketplace = () => {
 
                         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mb-12">
                             <h2 className={`text-2xl font-bold ${themeClasses.textColor} mb-6 border-b ${themeClasses.border} pb-2`}>{t('Commodity Listings')} ({filteredCrops.length})</h2>
+                            
+                            {/* Bulk Delete Button */}
+                            <div className="flex justify-end mb-4">
+                                <button 
+                                    onClick={() => {
+                                        if (filteredCrops.length > 0) {
+                                            setNotifications([{ 
+                                                message: t('Bulk delete option would delete all {{count}} listings. Use with caution!', { count: filteredCrops.length }), 
+                                                type: 'warning' 
+                                            }]);
+                                        }
+                                    }}
+                                    className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${isDarkMode ? 'bg-red-900 hover:bg-red-800 text-red-300' : 'bg-red-100 hover:bg-red-200 text-red-700'}`}
+                                    title={t("Clear all listings (Admin only)")}
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                    {t('Clear All Listings')}
+                                </button>
+                            </div>
+                            
                             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
                                 {filteredCrops.map(item => {
                                     const currentHighest = getCurrentHighestBid(item._id, allCrops, allBids);
@@ -587,31 +989,62 @@ const Marketplace = () => {
                                     const isMarketAlert = currentHighest < item.marketPrice * MARKET_PRICE_ALERT_THRESHOLD;
 
                                     return (
-                                        <motion.div key={item._id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} whileHover={{ scale: 1.03 }} onClick={() => setSelectedCropId(item._id)} className={`${themeClasses.cardBg} rounded-lg p-4 cursor-pointer transition-all ${selectedCropId === item._id ? (isDarkMode ? 'ring-2 ring-indigo-500' : 'ring-2 ring-indigo-700 border-indigo-700') : ''} ${isMarketAlert ? (isDarkMode ? 'ring-2 ring-red-600 border-red-500' : 'ring-2 ring-red-300 border-red-500') : ''}`}>
-                                            <div className="flex justify-between items-start mb-2">
-                                                <h3 className={`text-lg font-bold ${themeClasses.textColor}`}>{item.produce}</h3>
-                                                <div className="flex items-center gap-2">
-                                                    {isMarketAlert && <AlertTriangle className='w-5 h-5 text-red-500 animate-pulse' title={t("Significantly below market price!")} />}
-                                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getTrendColor('Up', isDarkMode)}`}>{t(item.status.toUpperCase())}</span>
+                                        <motion.div key={item._id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} whileHover={{ scale: 1.03 }} className={`${themeClasses.cardBg} rounded-lg p-4 transition-all relative group ${selectedCropId === item._id ? (isDarkMode ? 'ring-2 ring-indigo-500' : 'ring-2 ring-indigo-700 border-indigo-700') : ''} ${isMarketAlert ? (isDarkMode ? 'ring-2 ring-red-600 border-red-500' : 'ring-2 ring-red-300 border-red-500') : ''}`}>
+                                            
+                                            {/* DELETE BUTTON - VISIBLE ON EVERY CARD (for anyone) */}
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setCropToDelete(item);
+                                                    setShowDeleteModal(true);
+                                                }}
+                                                className={`absolute -top-2 -right-2 p-2 rounded-full z-10 ${isDarkMode ? 'bg-red-700 hover:bg-red-600 text-red-200' : 'bg-red-500 hover:bg-red-600 text-white'} shadow-lg`}
+                                                title={t("Delete this listing")}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+
+                                            {/* Clickable area for selecting crop */}
+                                            <div onClick={() => setSelectedCropId(item._id)} className="cursor-pointer">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <h3 className={`text-lg font-bold ${themeClasses.textColor}`}>{item.produce}</h3>
+                                                    <div className="flex items-center gap-2">
+                                                        {isMarketAlert && <AlertTriangle className='w-5 h-5 text-red-500 animate-pulse' title={t("Significantly below market price!")} />}
+                                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getTrendColor('Up', isDarkMode)}`}>
+                                                            {t(item.status.toUpperCase())}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                            </div>
 
-                                            <div className={`text-xs font-semibold px-2 py-1 rounded-full text-center mb-3 ${myBidStatus === 'Winning' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200 border border-yellow-500' : myBidStatus === 'Outbid' ? 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200 border border-red-500' : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-800 dark:text-indigo-200 border border-indigo-500'}`}>
-                                                {myBidStatus === 'Winning' && <Crown className='w-4 h-4 inline mr-1' />}
-                                                {myBidStatus === 'Outbid' && <Zap className='w-4 h-4 inline mr-1' />}
-                                                {t('MY STATUS')}: {t(myBidStatus.toUpperCase())}
-                                            </div>
-
-                                            <div className="flex justify-between items-end">
-                                                <div>
-                                                    <p className={`text-xl font-extrabold ${themeClasses.textColor}`}>₹{currentHighest.toFixed(2)}<span className={`text-xs ${themeClasses.subTextColor}`}>/{t('kg')}</span></p>
-                                                    <p className={`text-xs font-semibold ${deltaColor}`}>{priceDelta >= 0 ? '▲' : '▼'}{Math.abs(priceDelta).toFixed(2)}</p>
+                                                <div className={`text-xs font-semibold px-2 py-1 rounded-full text-center mb-3 ${myBidStatus === 'Winning' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200 border border-yellow-500' : myBidStatus === 'Outbid' ? 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200 border border-red-500' : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-800 dark:text-indigo-200 border border-indigo-500'}`}>
+                                                    {myBidStatus === 'Winning' && <Crown className='w-4 h-4 inline mr-1' />}
+                                                    {myBidStatus === 'Outbid' && <Zap className='w-4 h-4 inline mr-1' />}
+                                                    {t('MY STATUS')}: {t(myBidStatus.toUpperCase())}
                                                 </div>
 
-                                                <div className={`text-xs text-right ${themeClasses.subTextColor}`}>
-                                                    <p><MapPin className='w-3 h-3 inline mr-1' /> {item.location}</p>
-                                                    <p><Leaf className='w-3 h-3 inline mr-1' /> {t('Grade')}: {item.grade}</p>
-                                                    <p><Weight className='w-3 h-3 inline mr-1' /> {item.quantityKg} {t('KG')}</p>
+                                                <div className="flex justify-between items-end">
+                                                    <div>
+                                                        <p className={`text-xl font-extrabold ${themeClasses.textColor}`}>₹{currentHighest.toFixed(2)}<span className={`text-xs ${themeClasses.subTextColor}`}>/{t('kg')}</span></p>
+                                                        <p className={`text-xs font-semibold ${deltaColor}`}>{priceDelta >= 0 ? '▲' : '▼'}{Math.abs(priceDelta).toFixed(2)}</p>
+                                                    </div>
+
+                                                    <div className={`text-xs text-right ${themeClasses.subTextColor}`}>
+                                                      <p><MapPin className='w-3 h-3 inline mr-1' /> {typeof item.location === 'string' ? item.location : item.location?.address || 'N/A'}</p>
+                                                        <p><Leaf className='w-3 h-3 inline mr-1' /> {t('Grade')}: {item.grade}</p>
+                                                        <p><Weight className='w-3 h-3 inline mr-1' /> {item.quantityKg} {t('KG')}</p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Farmer name and listing info */}
+                                                <div className="mt-3 pt-3 border-t border-gray-700/50">
+                                                    <div className="flex justify-between items-center">
+                                                        <p className={`text-xs ${themeClasses.subTextColor}`}>
+                                                            {t('Farmer')}: {item.farmerId?.name || 'Unknown'}
+                                                        </p>
+                                                        <span className={`text-xs px-2 py-1 rounded ${isDarkMode ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-600'}`}>
+                                                            {item._id.startsWith('mock_') ? t('Mock Data') : t('Live Listing')}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </motion.div>
@@ -624,12 +1057,29 @@ const Marketplace = () => {
                             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`mb-12 ${themeClasses.highlightBg} rounded-xl p-8`}>
                                 <div className={`flex justify-between items-start mb-6 border-b ${themeClasses.border} pb-4`}>
                                     <div>
-                                        <h2 className={`text-3xl font-extrabold ${isDarkMode ? 'text-indigo-400' : 'text-indigo-700'} mb-1`}>{selectedCrop.crop} <span className={themeClasses.subTextColor}>({selectedCrop.grade})</span></h2>
+                                        <h2 className={`text-3xl font-extrabold ${isDarkMode ? 'text-indigo-400' : 'text-indigo-700'} mb-1`}>
+                                            {selectedCrop.crop} <span className={themeClasses.subTextColor}>({selectedCrop.grade})</span>
+                                        </h2>
                                         <p className={`${themeClasses.subTextColor} italic`}>{selectedCrop.details}</p>
                                     </div>
-                                    <button onClick={() => setSelectedCropId(null)} className={`p-2 rounded ${isDarkMode ? 'text-gray-500 hover:text-red-500' : 'text-gray-700 hover:text-red-700'} font-bold`}>
-                                        <XCircle className='w-6 h-6' />
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            onClick={() => {
+                                                setCropToDelete(selectedCrop);
+                                                setShowDeleteModal(true);
+                                            }}
+                                            className={`p-2 rounded ${isDarkMode ? 'hover:bg-red-900 text-red-400 hover:text-red-300' : 'hover:bg-red-100 text-red-600 hover:text-red-800'}`}
+                                            title={t("Delete listing")}
+                                        >
+                                            <Trash2 className="w-5 h-5" />
+                                        </button>
+                                        <button 
+                                            onClick={() => setSelectedCropId(null)} 
+                                            className={`p-2 rounded ${isDarkMode ? 'text-gray-500 hover:text-red-500' : 'text-gray-700 hover:text-red-700'} font-bold`}
+                                        >
+                                            <XCircle className='w-6 h-6' />
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className="grid lg:grid-cols-4 gap-8">
@@ -651,6 +1101,28 @@ const Marketplace = () => {
                                                 <p className={themeClasses.subTextColor}>{t('No media attached for this listing.')}</p>
                                             )}
                                         </div>
+
+                                        {/* ML Analytics Dashboard */}
+                                        {activeMLView && (
+                                            <motion.div 
+                                                initial={{ opacity: 0, y: 20 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className={`rounded-xl p-6 ${isDarkMode ? 'bg-gray-800/70 border border-indigo-700/50' : 'bg-white/90 border border-indigo-300'}`}
+                                            >
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <h3 className={`text-xl font-bold ${isDarkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>
+                                                        {t('AI Analytics Dashboard')}
+                                                    </h3>
+                                                    <button 
+                                                        onClick={() => setActiveMLView(null)}
+                                                        className={`p-2 rounded ${isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-800'}`}
+                                                    >
+                                                        <XCircle className="w-5 h-5" />
+                                                    </button>
+                                                </div>
+                                                {renderMLView()}
+                                            </motion.div>
+                                        )}
 
                                         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mb-12">
                                             <h2 className={`text-2xl font-bold ${themeClasses.textColor} mb-6 border-b ${themeClasses.border} pb-2`}>{t('Order Book')}: {selectedCrop ? selectedCrop.produce : t('All Active Bids')} ({filteredOrderBookBids.length} {t('Total')})</h2>
@@ -709,9 +1181,32 @@ const Marketplace = () => {
                                                 {t('Market Price Est.')}: <span className='font-bold text-red-500 line-through'>₹{selectedCrop.marketPrice.toFixed(2)}</span> | {t('MIN BID TO WIN')}: ₹{(getCurrentHighestBid(selectedCrop._id, allCrops, allBids) + MIN_BID_RANGE).toFixed(2)} | {t('Min Qty')}: {selectedCrop.minOrder} {t('KG')}
                                             </p>
 
-                                            <h4 className={`text-sm font-bold uppercase mb-3 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-700'} border-t pt-4`}>{t('SMART FEATURE ENGINE')}</h4>
-                                            <div className="grid grid-cols-5 gap-3 mb-6">
-                                                {mlFeatures.map(feature => <SmartFeatureButton key={feature.title} icon={feature.icon} title={feature.title} mlInsight={feature.mlInsight} isDarkMode={isDarkMode} />)}
+                                            <h4 className={`text-sm font-bold uppercase mb-3 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-700'} border-t pt-4`}>{t('AI-POWERED ANALYTICS SUITE')}</h4>
+                                            <div className="grid grid-cols-4 gap-3 mb-6">
+                                                {mlFeatures.map(feature => (
+                                                    <SmartFeatureButton 
+                                                        key={feature.title} 
+                                                        icon={feature.icon} 
+                                                        title={feature.title} 
+                                                        mlInsight={feature.mlInsight} 
+                                                        isDarkMode={isDarkMode}
+                                                        onClick={() => setActiveMLView(feature.view)}
+                                                    />
+                                                ))}
+                                            </div>
+
+                                            <div className="mb-6 p-4 rounded-lg bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/30">
+                                                <div className="flex items-center gap-3">
+                                                    <Brain className={`w-6 h-6 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
+                                                    <div>
+                                                        <p className={`font-bold ${isDarkMode ? 'text-indigo-300' : 'text-indigo-700'}`}>
+                                                            {t('AI Recommendation')}
+                                                        </p>
+                                                        <p className={`text-sm ${themeClasses.subTextColor}`}>
+                                                            {t('Based on market conditions and competitor behavior, we recommend a bid of ₹{{price}}/kg', { price: (getCurrentHighestBid(selectedCrop._id, allCrops, allBids) + 3).toFixed(2) })}
+                                                        </p>
+                                                    </div>
+                                                </div>
                                             </div>
 
                                             <form onSubmit={handlePlaceBid} className="space-y-4">
@@ -748,6 +1243,228 @@ const Marketplace = () => {
                             </motion.div>
                         )}
 
+
+
+
+{/* ===================================================== */}
+{/* FIX: Remove duplicate section and keep only one logic */}
+{/* ===================================================== */}
+
+{/* Add Map/List Toggle Controls */}
+<motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mb-8">
+  {/* View Toggle Buttons */}
+  <div className="flex justify-between items-center mb-6">
+    <div className="flex space-x-4">
+      <button
+        onClick={() => setShowMapView(false)}
+        className={`px-6 py-3 rounded-lg font-semibold flex items-center gap-2 ${
+          !showMapView 
+            ? isDarkMode ? 'bg-green-600 text-white' : 'bg-green-500 text-white'
+            : isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+        }`}
+      >
+        <Layers className="w-5 h-5" />
+        {t('List View')}
+      </button>
+      <button
+        onClick={() => setShowMapView(true)}
+        className={`px-6 py-3 rounded-lg font-semibold flex items-center gap-2 ${
+          showMapView 
+            ? isDarkMode ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'
+            : isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+        }`}
+      >
+        <MapPin className="w-5 h-5" />
+        {t('Map View')}
+      </button>
+    </div>
+    
+    {/* Crop Type Filter */}
+    <div className="flex items-center gap-4">
+      <select 
+        value={selectedCropType}
+        onChange={(e) => setSelectedCropType(e.target.value)}
+        className={`px-4 py-2 rounded-lg ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-800'}`}
+      >
+        <option value="">All Crops</option>
+        <option value="tomato">Tomato</option>
+        <option value="potato">Potato</option>
+        <option value="carrot">Carrot</option>
+        <option value="guava">Guava</option>
+        <option value="apple">Apple</option>
+      </select>
+    </div>
+  </div>
+  
+  {/* Stats Cards - Show only in list view */}
+  {!showMapView && (
+    <div className="grid md:grid-cols-4 gap-6">
+      {[{ label: t('Open Listings'), value: totalOpenListings, icon: Layers, color: isDarkMode ? 'text-indigo-400' : 'text-indigo-600', action: () => setFilter('ALL') },
+      { label: t('My Active Bids'), value: bids.length, icon: Zap, color: isDarkMode ? 'text-red-400' : 'text-red-600', action: () => setFilter('ACTIVE_BIDS') },
+      { label: t('My Winning Bids'), value: winningBidsCount, icon: Crown, color: isDarkMode ? 'text-yellow-400' : 'text-yellow-600', action: () => setFilter('MY_WINNING_BIDS') },
+     { label: t('Nearby Farmers'), value: mapListings.length || 0, icon: MapPin, color: isDarkMode ? 'text-green-400' : 'text-green-600', action: () => setShowMapView(true) },
+      ].map((stat, index) => (
+        <motion.div key={index} className={`p-4 rounded-xl shadow-lg cursor-pointer transition-all ${themeClasses.cardBg} ${filter === (stat.label === t('Open Listings') ? 'ALL' : stat.label === t('My Winning Bids') ? 'MY_WINNING_BIDS' : stat.label.includes(t('Active Bids')) ? 'ACTIVE_BIDS' : '') ? (isDarkMode ? 'ring-2 ring-yellow-500' : 'ring-2 ring-blue-500') : ''}`} whileHover={{ scale: 1.02 }} onClick={stat.action}>
+          <div className="flex items-center gap-4">
+            <stat.icon className={`w-8 h-8 ${stat.color} ${stat.label === t('Market Alerts') && stat.value > 0 ? 'animate-bounce' : ''}`} />
+            <div>
+              <p className="text-sm text-gray-500">{stat.label}</p>
+              <p className={`text-2xl font-extrabold ${themeClasses.textColor}`}>{stat.value}</p>
+            </div>
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  )}
+</motion.div>
+
+{/* ============================================ */}
+{/* CONDITIONAL RENDERING: MAP VIEW vs LIST VIEW */}
+{/* ============================================ */}
+
+{showMapView ? (
+  /* ================= MAP VIEW ================= */
+  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-12">
+    <div className={`rounded-xl overflow-hidden shadow-xl ${themeClasses.cardBg}`}>
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className={`text-2xl font-bold flex items-center gap-3 ${isDarkMode ? 'text-green-400' : 'text-green-700'}`}>
+            <MapPin className="w-6 h-6" />
+            {t('Farmers Near You')}
+          </h2>
+          <button
+            onClick={() => setShowMapView(false)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}
+          >
+            <Layers className="w-4 h-4" />
+            {t('Back to List')}
+          </button>
+        </div>
+        
+        {/* MapView component */}
+        <MapView 
+          cropType={selectedCropType} 
+          isDarkMode={isDarkMode}
+          onSelectCrop={(cropId) => {
+            setSelectedCropId(cropId);
+            setShowMapView(false);
+          }}
+        />
+      </div>
+    </div>
+  </motion.div>
+) : (
+  /* ================= LIST VIEW ================= */
+  <>
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mb-12">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className={`text-2xl font-bold ${themeClasses.textColor} border-b ${themeClasses.border} pb-2`}>
+          {t('Commodity Listings')} ({filteredCrops.length})
+        </h2>
+        <button
+          onClick={() => setShowMapView(true)}
+          className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${isDarkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'} text-white`}
+        >
+          <MapPin className="w-4 h-4" />
+          {t('View on Map')}
+        </button>
+      </div>
+      
+      {/* Bulk Delete Button */}
+      <div className="flex justify-end mb-4">
+        <button 
+          onClick={() => {
+            if (filteredCrops.length > 0) {
+              setNotifications([{ 
+                message: t('Bulk delete option would delete all {{count}} listings. Use with caution!', { count: filteredCrops.length }), 
+                type: 'warning' 
+              }]);
+            }
+          }}
+          className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${isDarkMode ? 'bg-red-900 hover:bg-red-800 text-red-300' : 'bg-red-100 hover:bg-red-200 text-red-700'}`}
+          title={t("Clear all listings (Admin only)")}
+        >
+          <Trash2 className="w-4 h-4" />
+          {t('Clear All Listings')}
+        </button>
+      </div>
+      
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {filteredCrops.map(item => {
+          const currentHighest = getCurrentHighestBid(item._id, allCrops, allBids);
+          const priceDelta = currentHighest - item.pricePerKg;
+          const deltaColor = priceDelta > 0 ? (isDarkMode ? 'text-green-400' : 'text-green-700') : priceDelta < 0 ? (isDarkMode ? 'text-red-400' : 'text-red-700') : themeClasses.subTextColor;
+          const myBidStatus = getMyCurrentBidStatus(item._id, allBids);
+          const isMarketAlert = currentHighest < item.marketPrice * MARKET_PRICE_ALERT_THRESHOLD;
+
+          return (
+            <motion.div key={item._id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} whileHover={{ scale: 1.03 }} className={`${themeClasses.cardBg} rounded-lg p-4 transition-all relative group ${selectedCropId === item._id ? (isDarkMode ? 'ring-2 ring-indigo-500' : 'ring-2 ring-indigo-700 border-indigo-700') : ''} ${isMarketAlert ? (isDarkMode ? 'ring-2 ring-red-600 border-red-500' : 'ring-2 ring-red-300 border-red-500') : ''}`}>
+              
+              {/* DELETE BUTTON */}
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCropToDelete(item);
+                  setShowDeleteModal(true);
+                }}
+                className={`absolute -top-2 -right-2 p-2 rounded-full z-10 ${isDarkMode ? 'bg-red-700 hover:bg-red-600 text-red-200' : 'bg-red-500 hover:bg-red-600 text-white'} shadow-lg`}
+                title={t("Delete this listing")}
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+
+              {/* Clickable area for selecting crop */}
+              <div onClick={() => setSelectedCropId(item._id)} className="cursor-pointer">
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className={`text-lg font-bold ${themeClasses.textColor}`}>{item.produce}</h3>
+                  <div className="flex items-center gap-2">
+                    {isMarketAlert && <AlertTriangle className='w-5 h-5 text-red-500 animate-pulse' title={t("Significantly below market price!")} />}
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getTrendColor('Up', isDarkMode)}`}>
+                      {t(item.status.toUpperCase())}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={`text-xs font-semibold px-2 py-1 rounded-full text-center mb-3 ${myBidStatus === 'Winning' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200 border border-yellow-500' : myBidStatus === 'Outbid' ? 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200 border border-red-500' : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-800 dark:text-indigo-200 border border-indigo-500'}`}>
+                  {myBidStatus === 'Winning' && <Crown className='w-4 h-4 inline mr-1' />}
+                  {myBidStatus === 'Outbid' && <Zap className='w-4 h-4 inline mr-1' />}
+                  {t('MY STATUS')}: {t(myBidStatus.toUpperCase())}
+                </div>
+
+                <div className="flex justify-between items-end">
+                  <div>
+                    <p className={`text-xl font-extrabold ${themeClasses.textColor}`}>₹{currentHighest.toFixed(2)}<span className={`text-xs ${themeClasses.subTextColor}`}>/{t('kg')}</span></p>
+                    <p className={`text-xs font-semibold ${deltaColor}`}>{priceDelta >= 0 ? '▲' : '▼'}{Math.abs(priceDelta).toFixed(2)}</p>
+                  </div>
+
+                  <div className={`text-xs text-right ${themeClasses.subTextColor}`}>
+                   <p><MapPin className='w-3 h-3 inline mr-1' /> {typeof item.location === 'string' ? item.location : item.location?.address || 'N/A'}</p>
+                    <p><Leaf className='w-3 h-3 inline mr-1' /> {t('Grade')}: {item.grade}</p>
+                    <p><Weight className='w-3 h-3 inline mr-1' /> {item.quantityKg} {t('KG')}</p>
+                  </div>
+                </div>
+
+                {/* Farmer name and listing info */}
+                <div className="mt-3 pt-3 border-t border-gray-700/50">
+                  <div className="flex justify-between items-center">
+                    <p className={`text-xs ${themeClasses.subTextColor}`}>
+                      {t('Farmer')}: {item.farmerId?.name || 'Unknown'}
+                    </p>
+                    <span className={`text-xs px-2 py-1 rounded ${isDarkMode ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-600'}`}>
+                      {item._id.startsWith('mock_') ? t('Mock Data') : t('Live Listing')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+    </motion.div>
+  </>
+)}
+
+
                         <Notification notifications={notifications} />
                     </>
                 )}
@@ -764,6 +1481,58 @@ const Marketplace = () => {
                         </motion.div>
                     )}
                 </AnimatePresence>
+
+                {/* Delete Confirmation Modal */}
+                <AnimatePresence>
+                    {showDeleteModal && (
+                        <motion.div 
+                            initial={{ opacity: 0 }} 
+                            animate={{ opacity: 1 }} 
+                            exit={{ opacity: 0 }} 
+                            className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50"
+                        >
+                            <motion.div 
+                                initial={{ scale: 0.9, opacity: 0 }} 
+                                animate={{ scale: 1, opacity: 1 }} 
+                                exit={{ scale: 0.9, opacity: 0 }}
+                                className={`${themeClasses.cardBg} rounded-xl p-8 max-w-md w-full shadow-2xl border-2 ${isDarkMode ? 'border-red-700' : 'border-red-500'}`}
+                            >
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className={`p-3 rounded-full ${isDarkMode ? 'bg-red-900' : 'bg-red-100'}`}>
+                                        <Trash2 className={`w-6 h-6 ${isDarkMode ? 'text-red-400' : 'text-red-600'}`} />
+                                    </div>
+                                    <h3 className={`text-2xl font-bold ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>
+                                        {t('Delete Listing')}
+                                    </h3>
+                                </div>
+                                
+                                <p className={`${themeClasses.subTextColor} mb-6`}>
+                                    {t('Are you sure you want to delete "{{cropName}}"? This action cannot be undone. All bids placed on this listing will also be removed.', { 
+                                        cropName: cropToDelete?.produce || cropToDelete?.crop 
+                                    })}
+                                </p>
+                                
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={() => {
+                                            setShowDeleteModal(false);
+                                            setCropToDelete(null);
+                                        }}
+                                        className={`flex-1 py-3 rounded-lg font-semibold ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}
+                                    >
+                                        {t('Cancel')}
+                                    </button>
+                                    <button
+                                        onClick={handleDeleteCrop}
+                                        className={`flex-1 py-3 rounded-lg font-semibold ${isDarkMode ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-red-500 hover:bg-red-600 text-white'}`}
+                                    >
+                                        {t('Yes, Delete')}
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>  
             </div>
         </div>
     );
