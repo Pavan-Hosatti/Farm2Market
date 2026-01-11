@@ -8,7 +8,7 @@ import ChatHistory from './ChatHistory';
 
 
 
-const API_BASE_URL = 'https://farm2market-517h.onrender.com/api'
+const API_BASE_URL = import.meta.env.VITE_API_URL
 
 const VoiceBot = () => {
   const { t } = useTranslation();
