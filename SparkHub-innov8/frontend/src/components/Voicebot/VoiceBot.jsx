@@ -6,7 +6,9 @@ import { Mic, MicOff, Loader2, Volume2, X, MessageCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import ChatHistory from './ChatHistory';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+
+
+const API_BASE_URL = 'https://farm2market-517h.onrender.com/api'
 
 const VoiceBot = () => {
   const { t } = useTranslation();
