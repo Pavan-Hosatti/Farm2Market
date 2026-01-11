@@ -15,4 +15,14 @@ export default defineConfig({
       }
     }
   },
+  // ADD THIS SECTION TO FIX THE BUILD ERROR
+  optimizeDeps: {
+    include: ['react-leaflet', 'leaflet']
+  },
+  build: {
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true
+    }
+  }
 })
