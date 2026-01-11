@@ -14,14 +14,5 @@ export default defineConfig({
         secure: false,
       }
     }
-  },
-  build: {
-    commonjsOptions: {
-      include: [/node_modules/],
-      transformMixedEsModules: true
-    }
-  },
-  optimizeDeps: {
-    include: ['leaflet', 'react-leaflet']
   }
 })
