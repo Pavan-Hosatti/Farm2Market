@@ -150,7 +150,7 @@ const PriceLineChart = ({ history, isDarkMode, t }) => (
     </ResponsiveContainer>
 );
 
-// New ML Visualization Components
+// New ML Visualization Components for better understanding
 const PricePredictionChart = ({ isDarkMode, t }) => {
     const data = [
         { name: 'Current', price: 85, prediction: 85 },
@@ -1539,3 +1539,4 @@ const [selectedCropType, setSelectedCropType] = useState('');
 };
 
 export default Marketplace;
+
