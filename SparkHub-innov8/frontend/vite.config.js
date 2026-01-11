@@ -1,8 +1,16 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path' // You might need to import this
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      // This tells Vite: "When you see 'react-leaflet', look exactly here"
+      'react-leaflet': path.resolve(__dirname, 'node_modules/react-leaflet/lib/index.js'),
+      'leaflet': path.resolve(__dirname, 'node_modules/leaflet/dist/leaflet.js'),
+    },
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,
@@ -15,14 +23,10 @@ export default defineConfig({
       }
     }
   },
-  // ADD THIS SECTION TO FIX THE BUILD ERROR
-  optimizeDeps: {
-    include: ['react-leaflet', 'leaflet']
-  },
   build: {
-    commonjsOptions: {
-      include: [/node_modules/],
-      transformMixedEsModules: true
+    rollupOptions: {
+      // If the alias doesn't work, we tell Rollup to expect these as external
+      // but the alias usually solves the 'failed to resolve' error.
     }
   }
 })
