@@ -131,13 +131,14 @@ exports.submitForGrading = async (req, res) => {
             console.log('📨 ML Response Status:', mlResponse.status);
             console.log('📨 ML Response Data:', JSON.stringify(mlResponse.data, null, 2));
 
-            if (mlResponse.status === 202 && mlResponse.data.job_id) {
-                job_id = mlResponse.data.job_id;
-                console.log('✅ Job submitted successfully!');
-                console.log('🆔 Job ID:', job_id);
-            } else {
-                throw new Error(`Unexpected ML response: ${JSON.stringify(mlResponse.data)}`);
-            }
+        // ✅ HF returns 200 with success:true, not 202
+if (mlResponse.data.success && mlResponse.data.job_id) {
+    job_id = mlResponse.data.job_id;
+    console.log('✅ Job submitted successfully!');
+    console.log('🆔 Job ID:', job_id);
+} else {
+    throw new Error(`Unexpected ML response: ${JSON.stringify(mlResponse.data)}`);
+}
 
         } catch (mlError) {
             console.error('\n❌ ML SUBMISSION ERROR:');
@@ -268,7 +269,7 @@ exports.submitForGrading = async (req, res) => {
         console.log('Response:', JSON.stringify(responseData, null, 2));
         console.log('='.repeat(60) + '\n');
 
-        return res.status(job_id ? 202 : 200).json(responseData);
+return res.status(200).json(responseData);  // Always return 200
 
     } catch (error) {
         console.error('\n❌❌❌ CONTROLLER ERROR ❌❌❌');
