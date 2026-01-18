@@ -20,12 +20,64 @@ const farmerSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Please provide a password'],
         minlength: 8,
-        select: false // Don't include password by default in queries
+        select: false
     },
     role: {
         type: String,
         enum: ['farmer'],
         default: 'farmer'
+    },
+    // ✅ NEW: Profile fields (optional)
+    farmName: {
+        type: String,
+        default: function() { return this.name; } // Use name as default
+    },
+    location: {
+        type: String,
+        default: ''
+    },
+    description: {
+        type: String,
+        default: ''
+    },
+    phoneNumber: {
+        type: String,
+        default: ''
+    },
+    whatsappNumber: {
+        type: String,
+        default: ''
+    },
+  farmSize: {
+    value: {
+        type: String,
+        default: ''
+    },
+    unit: {
+        type: String,
+        enum: ['acres', 'hectares', 'sqft'],
+        default: 'acres'
+    }
+},
+    farmingType: {
+        type: String,
+        default: ''
+    },
+    primaryCrops: {
+        type: [String],
+        default: []
+    },
+    secondaryCrops: {
+        type: [String],
+        default: []
+    },
+    expertise: {
+        type: [String],
+        default: []
+    },
+    isProfileComplete: {
+        type: Boolean,
+        default: false
     },
     createdAt: {
         type: Date,
@@ -35,7 +87,6 @@ const farmerSchema = new mongoose.Schema({
 
 // --- MIDDLEWARE: Hash password before saving ---
 farmerSchema.pre('save', async function(next) {
-    // Only hash if password is modified
     if (!this.isModified('password')) {
         return next();
     }
