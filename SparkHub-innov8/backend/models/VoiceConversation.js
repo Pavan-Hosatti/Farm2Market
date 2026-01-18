@@ -19,6 +19,10 @@ const voiceConversationSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+   action: { // ✅ NEW: Store action
+    type: mongoose.Schema.Types.Mixed,
+    default: null
+  },
   confidence: {
     type: Number,
     default: 0
