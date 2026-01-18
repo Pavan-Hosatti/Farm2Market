@@ -1,30 +1,41 @@
-// src/components/ChatHistory.jsx
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Volume2 } from "lucide-react";
+import { Volume2, Loader2 } from "lucide-react";
+import useTextToSpeech from "../../hooks/useTextToSpeech";
 
 const ChatHistory = ({ conversation }) => {
   const messagesEndRef = useRef(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  
+  // Use the hook
+  const { speak, stop, isSupported } = useTextToSpeech('kn');
 
-  // Auto-scroll to the bottom when new messages arrive
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [conversation]);
 
-  // ✅ Simple Kannada Text-to-Speech (no API key required)
-  // ✅ Kannada Text-to-Speech using CORS proxy
-  const playKannadaVoice = async (text) => {
-    if (!text) return;
+  // PLAY FUNCTION - NO NONSENSE
+  const playKannadaVoice = (text) => {
+    if (!text || !isSupported) return;
     
-    try {
-      // Using a free CORS proxy to bypass the restriction
-      const googleTTSUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=kn&client=tw-ob&q=${encodeURIComponent(text)}`;
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(googleTTSUrl)}`;
+    // Stop any current speech
+    stop();
+    setIsSpeaking(true);
+    
+    // SPEAK IMMEDIATELY
+    const utterance = speak(text);
+    
+    if (utterance) {
+      utterance.onend = () => {
+        setIsSpeaking(false);
+      };
       
-      const audio = new Audio(proxyUrl);
-      await audio.play();
-    } catch (err) {
-      console.error("Audio playback failed:", err);
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+      };
+    } else {
+      setIsSpeaking(false);
     }
   };
 
@@ -33,12 +44,15 @@ const ChatHistory = ({ conversation }) => {
       {conversation.length === 0 && (
         <div className="text-center py-20 text-gray-500 dark:text-gray-400">
           <p className="text-lg">ಕನ್ನಡದಲ್ಲಿ ಮಾತನಾಡಿ</p>
-          <p className="text-sm mt-2">
-            Start your voice conversation in Kannada
-          </p>
+          <p className="text-sm mt-2">Start your voice conversation</p>
           <p className="text-xs mt-4 text-gray-400">
             ಬೆಳೆಗಳು, ಬೆಲೆಗಳು ಮತ್ತು ಕೃಷಿ ಬಗ್ಗೆ ಕೇಳಿ
           </p>
+          {!isSupported && (
+            <p className="text-xs text-red-500 mt-2">
+              ⚠️ Voice playback not supported in this browser
+            </p>
+          )}
         </div>
       )}
 
@@ -61,14 +75,24 @@ const ChatHistory = ({ conversation }) => {
           >
             <p className="text-sm whitespace-pre-wrap">{message.text}</p>
 
-            {/* 🎧 Play Audio Button for AI responses */}
-            {message.role === "assistant" && (
+            {/* 🎧 Play Button - SIMPLE */}
+            {message.role === "assistant" && isSupported && (
               <button
                 onClick={() => playKannadaVoice(message.text)}
-                className="mt-2 text-xs flex items-center gap-1 text-gray-600 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-400 transition"
+                disabled={isSpeaking}
+                className="mt-2 text-xs flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-800 transition disabled:opacity-50"
               >
-                <Volume2 className="w-3 h-3" />
-                ಕೇಳಿ (Listen)
+                {isSpeaking ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    🔊 Playing...
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="w-3 h-3" />
+                    🔊 ಕೇಳಿ
+                  </>
+                )}
               </button>
             )}
           </div>
