@@ -61,7 +61,7 @@ const corsOptions = {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-auth-token'],
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
     maxAge: 86400 // 24 hours
 };
@@ -127,7 +127,7 @@ app.get('/api/ml-status', async (req, res) => {
 });
 
 // ✅ IMPORT ROUTES WITH ERROR HANDLING
-let authRoutes, cropListingRoutes, bidRoutes, voiceRoutes, predictRoutes;
+let authRoutes, cropListingRoutes, bidRoutes, voiceRoutes, predictRoutes, farmerProfileRoutes;
 
 try {
     authRoutes = require('./routes/authRoutes');
@@ -164,13 +164,22 @@ try {
     console.error('❌ Error loading predict routes:', err.message);
 }
 
+
+try {
+    farmerProfileRoutes = require('./routes/farmer-profile.routes');
+    console.log('✅ Farmer profile routes loaded');
+} catch (err) {
+    console.error('❌ Error loading farmer profile routes:', err.message);
+}
+
 // ✅ MOUNT ROUTES (ONLY IF THEY LOADED SUCCESSFULLY)
 if (authRoutes) app.use('/api/auth', authRoutes);
 if (cropListingRoutes) app.use('/api/crops', cropListingRoutes);
 if (bidRoutes) app.use('/api/bids', bidRoutes);
 if (voiceRoutes) app.use('/api/voice', voiceRoutes);
 if (predictRoutes) app.use('/api/predict', predictRoutes);
-
+// Mount the route (around line 100-110)
+if (farmerProfileRoutes) app.use('/api/farmer-profile', farmerProfileRoutes);
 app.use('/api/map', mapRoutes);
 
 
@@ -183,6 +192,7 @@ if (cropListingRoutes) console.log('   - /api/crops/*');
 if (bidRoutes) console.log('   - /api/bids/*');
 if (voiceRoutes) console.log('   - /api/voice/*');
 if (predictRoutes) console.log('   - /api/predict/*');
+if (farmerProfileRoutes) console.log('   - /api/farmer-profile/*');
 
 // ✅ CONNECT TO DATABASE
 mongoose.connect(process.env.MONGO_URI)
