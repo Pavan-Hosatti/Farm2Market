@@ -1089,13 +1089,21 @@ const [selectedCropType, setSelectedCropType] = useState('');
                                             {selectedCrop.videoUrl ? (
                                                 <div className='w-full h-full'>
                                                     <p className={`${themeClasses.subTextColor} text-sm italic mb-2 text-center`}>{t('AI Grading Source Video')}</p>
-                                                    <video
-                                                        controls
-                                                        className="w-full h-auto max-h-64 rounded-lg"
-                                                        src={selectedCrop.videoUrl.startsWith('http') ? selectedCrop.videoUrl : `${API_BASE_URL.replace('/api/crop-listings', '')}/${selectedCrop.videoUrl}`}
-                                                    >
-                                                        {t('Your browser does not support the video tag.')}
-                                                    </video>
+                                                  <video
+    controls
+    className="w-full h-auto max-h-64 rounded-lg"
+    src={
+        selectedCrop.videoUrl 
+            ? selectedCrop.videoUrl.startsWith('http') 
+                ? selectedCrop.videoUrl 
+                : selectedCrop.videoUrl.startsWith('/uploads/')
+                    ? `${API_BASE_URL.replace('/api', '')}${selectedCrop.videoUrl}`
+                    : `${API_BASE_URL.replace('/api', '')}/uploads/${selectedCrop.videoUrl}`
+            : ''
+    }
+>
+    {t('Your browser does not support the video tag.')}
+</video>
                                                 </div>
                                             ) : (
                                                 <p className={themeClasses.subTextColor}>{t('No media attached for this listing.')}</p>
