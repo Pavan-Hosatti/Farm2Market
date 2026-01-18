@@ -1,5 +1,6 @@
 // AIGrader.jsx
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+
 import { motion } from 'framer-motion';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
@@ -43,29 +44,72 @@ const AIGrader = () => {
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(false);
     const [submissionMessage, setSubmissionMessage] = useState({ type: '', text: '' });
+    const [isAutoMode, setIsAutoMode] = useState(false);
+    const [autoStep, setAutoStep] = useState(0);
 
+const submitButtonRef = useRef(null);
+
+// ✅ NEW: Computed state for button enabled/disabled
+    const isSubmitEnabled = useMemo(() => {
+        const hasQuantity = formData.quantityKg && formData.quantityKg.trim() !== '';
+        const hasPrice = formData.pricePerKg && formData.pricePerKg.trim() !== '';
+        const hasLocation = formData.location && formData.location.trim() !== '';
+        
+        const enabled = !loading && hasQuantity && hasPrice && hasLocation;
+        
+        console.log('🔘 Submit button state:', {
+            hasQuantity,
+            hasPrice,
+            hasLocation,
+            loading,
+            enabled,
+            step: currentStep
+        });
+        
+        return enabled;
+    }, [formData.quantityKg, formData.pricePerKg, formData.location, loading, currentStep]);
+
+
+
+
+    // Constants
     const totalSteps = 6;
-
-    const dynamicAudit = useMemo(() => getAuditParameters(formData.cropType), [formData.cropType]);
-
     const allCrops = [
         'tomato', 'apple', 'carrot', 'lettuce', 'banana', 'mango', 'orange', 'potato',
         'onion', 'broccoli', 'spinach', 'cucumber', 'capsicum', 'grapes', 'strawberry',
         'watermelon', 'pumpkin', 'cabbage', 'cauliflower', 'radish', 'beetroot', 'garlic',
         'ginger', 'chili', 'okra', 'peas', 'beans', 'corn', 'rice', 'wheat', 'sugarcane'
     ];
+    const dynamicAudit = useMemo(() => getAuditParameters(formData.cropType), [formData.cropType]);
+
+    // ===================== FUNCTIONS =====================
 
     const handleInputChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
     const nextStep = () => {
-        if (currentStep === 1 && !cropFile) {
-             setSubmissionMessage({ type: 'error', text: t('errors.uploadVideoRequired') });
-             return;
+        if (currentStep === 1) {
+            if (!cropFile || formData.photo.length === 0) {
+                setSubmissionMessage({ 
+                    type: 'error', 
+                    text: 'Please select a video file first' 
+                });
+                return;
+            }
         }
+        
         setSubmissionMessage({ type: '', text: '' });
-        if (currentStep < totalSteps) setCurrentStep(currentStep + 1);
+        if (currentStep < totalSteps) {
+            setCurrentStep(currentStep + 1);
+            
+            // Auto-fill when moving to step 3 in auto mode
+            if (currentStep === 2 && isAutoMode) {
+                setTimeout(() => {
+                    performAutoFillAllFields();
+                }, 500);
+            }
+        }
     };
 
     const prevStep = () => {
@@ -75,8 +119,31 @@ const AIGrader = () => {
 
     const handlePhotoUpload = (e) => {
         const file = e.target.files[0];
-        setCropFile(file);
-        setFormData(prev => ({ ...prev, photo: file ? [file] : [] }));
+        console.log('📁 File selected in handlePhotoUpload:', file?.name);
+        
+        if (file) {
+            if (!file.type.startsWith('video/')) {
+                setSubmissionMessage({ 
+                    type: 'error', 
+                    text: 'Please select a video file (MP4, MOV, AVI, etc.)' 
+                });
+                return;
+            }
+            
+            setCropFile(file);
+            setFormData(prev => ({ 
+                ...prev, 
+                photo: [file]
+            }));
+            
+            setSubmissionMessage({ type: '', text: '' });
+            
+            setTimeout(() => {
+                if (currentStep === 1) {
+                    nextStep();
+                }
+            }, 1000);
+        }
     };
 
     const handleDragDrop = (e) => {
@@ -111,55 +178,57 @@ const AIGrader = () => {
         setGradeResult(null);
         setCurrentStep(1);
         setSubmissionMessage({ type: '', text: '' });
+        setIsAutoMode(false);
+        setAutoStep(0);
     };
 
- const pollJobStatus = async (jobId, cropListingId) => {
-    let status = 'pending';
-    const POLL_INTERVAL_MS = 10000; // Check every 10 seconds
-    const MAX_POLLS = 30; // Stop after 5 minutes
-    let pollCount = 0;
-    
-    setSubmissionMessage({ 
-        type: 'info', 
-        text: `Grading in progress... Job ID: ${jobId}` 
-    });
-
-    console.log(`📡 Starting polling for Job ID: ${jobId}`);
-
-    while (status === 'pending' || status === 'processing') {
-        if (pollCount >= MAX_POLLS) {
-            throw new Error('Grading timeout - please check status later');
-        }
+    const pollJobStatus = async (jobId, cropListingId) => {
+        let status = 'pending';
+        const POLL_INTERVAL_MS = 10000;
+        const MAX_POLLS = 30;
+        let pollCount = 0;
         
-        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
-        pollCount++;
+        setSubmissionMessage({ 
+            type: 'info', 
+            text: `Grading in progress... Job ID: ${jobId}` 
+        });
 
-        try {
-            const statusResponse = await axios.get(
-                `${API_BASE_URL}/crops/grading-status/${jobId}`,
-                { timeout: 10000 }
-            );
-            
-            status = statusResponse.data.status;
-            console.log(`Poll ${pollCount}: status = ${status}`);
+        console.log(`📡 Starting polling for Job ID: ${jobId}`);
 
-            if (status === 'completed') {
-                return statusResponse.data.result;
-            } else if (status === 'failed') {
-                throw new Error(statusResponse.data.error || 'Grading failed');
+        while (status === 'pending' || status === 'processing') {
+            if (pollCount >= MAX_POLLS) {
+                throw new Error('Grading timeout - please check status later');
             }
+            
+            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+            pollCount++;
 
-            setSubmissionMessage({ 
-                type: 'info', 
-                text: `Processing... (${pollCount * 3}s elapsed)` 
-            });
+            try {
+                const statusResponse = await axios.get(
+                    `${API_BASE_URL}/crops/grading-status/${jobId}`,
+                    { timeout: 10000 }
+                );
+                
+                status = statusResponse.data.status;
+                console.log(`Poll ${pollCount}: status = ${status}`);
 
-        } catch (error) {
-            console.error('Polling error:', error);
-            throw new Error(`Status check failed: ${error.message}`);
+                if (status === 'completed') {
+                    return statusResponse.data.result;
+                } else if (status === 'failed') {
+                    throw new Error(statusResponse.data.error || 'Grading failed');
+                }
+
+                setSubmissionMessage({ 
+                    type: 'info', 
+                    text: `Processing... (${pollCount * 3}s elapsed)` 
+                });
+
+            } catch (error) {
+                console.error('Polling error:', error);
+                throw new Error(`Status check failed: ${error.message}`);
+            }
         }
-    }
-};
+    };
 
     const handleSubmit = async () => {
         if (!formData.quantityKg || !formData.pricePerKg || !formData.location) {
@@ -221,18 +290,30 @@ const AIGrader = () => {
                 text: t('messages.gradedSuccess', { grade: gradeDetails.grade, confidence: gradeDetails.confidence })
             });
             
-            setGradeResult({
-                grade: gradeDetails.grade,
-                qualityScore: gradeDetails.confidence,
-                crop: formData.cropType,
-                date: new Date().toLocaleDateString(),
-                details: formData.details,
-                grade_breakdown: gradeDetails.grade_breakdown || {},
-                frames_analyzed: gradeDetails.frames_analyzed || 0,
-                error: gradeDetails.error
-            });
-            
-            setCurrentStep(6);
+          // In AIGrader.jsx - After grade is received in handleSubmit()
+
+setGradeResult({
+  grade: gradeDetails.grade,
+  qualityScore: gradeDetails.confidence,
+  crop: formData.cropType,
+  date: new Date().toLocaleDateString(),
+  details: formData.details,
+  grade_breakdown: gradeDetails.grade_breakdown || {},
+  frames_analyzed: gradeDetails.frames_analyzed || 0,
+  error: gradeDetails.error
+});
+
+// ✅ FIRE EVENT for VoiceBot to catch
+window.dispatchEvent(new CustomEvent('gradeResultReceived', {
+  detail: {
+    grade: gradeDetails.grade,
+    qualityScore: gradeDetails.confidence,
+    crop: formData.cropType,
+    timestamp: Date.now()
+  }
+}));
+
+setCurrentStep(6);
 
         } catch (error) {
             console.error('❌ Submission/Grading error:', error);
@@ -255,53 +336,365 @@ const AIGrader = () => {
         }
     };
 
-    // Icon Components
+    // ===================== AUTOMATION FUNCTIONS =====================
+
+    const performAutoFillAllFields = () => {
+        console.log('🤖 Starting auto-fill of ALL fields...');
+        
+        const defaults = {
+            cropType: 'tomato',
+            quantityKg: '100',
+            pricePerKg: '50',
+            location: 'ಬೆಂಗಳೂರು',
+            details: 'ಈ ಬೆಳೆ ತಾಜಾ ಮತ್ತು ಉತ್ತಮ ಗುಣಮಟ್ಟದ್ದಾಗಿದೆ. ಸಾವಯವ ಕೃಷಿ ವಿಧಾನಗಳನ್ನು ಬಳಸಿ ಬೆಳೆಸಲಾಗಿದೆ.',
+            marketChoice: 'primary'
+        };
+        
+        setFormData(prev => ({ 
+            ...prev, 
+            ...defaults,
+            photo: prev.photo || []
+        }));
+        
+        const physicalDefaults = {
+            colorUniformity: '85',
+            sizeConsistency: '80',
+            defects: '5',
+            freshness: '8',
+            moisture: '12'
+        };
+        
+        setFormData(prev => ({
+            ...prev,
+            physicalAudit: physicalDefaults
+        }));
+        
+        console.log('✅ Auto-fill complete!');
+        setAutoStep(2);
+        
+        setSubmissionMessage({ 
+            type: 'success', 
+            text: 'Auto-fill complete! All fields have been filled automatically.' 
+        });
+    };
+
+    const autoClickNextButton = () => {
+        console.log('🤖 Looking for Next button to auto-click...');
+        
+        const buttons = document.querySelectorAll('button');
+        let nextButton = null;
+        
+        for (const button of buttons) {
+            const buttonText = button.textContent || '';
+            if ((buttonText.includes('Next') || buttonText.includes('ನೆಕ್ಸ್ಟ್')) && 
+                !button.disabled && 
+                button.offsetParent !== null) {
+                nextButton = button;
+                break;
+            }
+        }
+        
+        if (!nextButton) {
+            nextButton = document.querySelector('button.bg-indigo-600:not([disabled])');
+        }
+        
+        if (nextButton) {
+            console.log('✅ Found Next button, clicking...');
+            nextButton.click();
+            return true;
+        }
+        
+        console.log('❌ Next button not found');
+        return false;
+    };
+
+    const autoClickSubmitButton = () => {
+        console.log('🤖 Looking for Submit button to auto-click...');
+        
+        const buttons = document.querySelectorAll('button');
+        let submitButton = null;
+        
+        for (const button of buttons) {
+            const buttonText = button.textContent || '';
+            if ((buttonText.includes('Submit') || buttonText.includes('ಸಲ್ಲಿಸು')) && 
+                !button.disabled) {
+                submitButton = button;
+                break;
+            }
+        }
+        
+        if (!submitButton) {
+            submitButton = document.querySelector('button.bg-gradient-to-r:not([disabled])');
+        }
+        
+        if (submitButton && !submitButton.disabled) {
+            console.log('✅ Found Submit button, clicking...');
+            submitButton.click();
+            return true;
+        }
+        
+        console.log('❌ Submit button not found or disabled');
+        return false;
+    };
+
+    // ===================== USEEFFECT HOOKS =====================
+
+    useEffect(() => {
+        window.updateAIGraderFile = (file) => {
+            console.log('🎯 Global function called with file:', file?.name);
+            
+            if (file) {
+                setCropFile(file);
+                setFormData(prev => ({ 
+                    ...prev, 
+                    photo: [file] 
+                }));
+                
+                console.log('✅ File updated via global function:', file.name);
+                setSubmissionMessage({ type: '', text: '' });
+                
+                setTimeout(() => {
+                    if (currentStep === 1) {
+                        setCurrentStep(2);
+                    }
+                }, 500);
+            }
+        };
+        
+        return () => {
+            delete window.updateAIGraderFile;
+        };
+    }, [currentStep]);
+
+    useEffect(() => {
+        const handleVoiceCommand = (event) => {
+            console.log('🎯 Voice command received:', event.data);
+            
+            if (event.data?.type === 'voice_automation') {
+                console.log('🤖 Processing voice automation:', event.data.command);
+                
+                switch (event.data.command) {
+                    case 'auto_fill_form':
+                        setIsAutoMode(true);
+                        performAutoFillAllFields();
+                        break;
+                        
+                    case 'auto_next_step':
+                        if (currentStep < totalSteps) {
+                            setCurrentStep(prev => prev + 1);
+                        }
+                        break;
+                        
+                    case 'auto_submit':
+                        handleSubmit();
+                        break;
+                        
+                    case 'auto_select_crop':
+                        if (event.data.value) {
+                            setFormData(prev => ({ ...prev, cropType: event.data.value }));
+                        }
+                        break;
+                }
+            }
+        };
+        
+        window.addEventListener('message', handleVoiceCommand);
+        
+        window.voiceAutomation = {
+            autoFillField: (fieldName, value) => {
+                console.log(`🤖 Auto-filling ${fieldName} with:`, value);
+                
+                if (fieldName === 'cropType') {
+                    setFormData(prev => ({ ...prev, cropType: value }));
+                } else if (fieldName === 'quantityKg') {
+                    setFormData(prev => ({ ...prev, quantityKg: value }));
+                } else if (fieldName === 'pricePerKg') {
+                    setFormData(prev => ({ ...prev, pricePerKg: value }));
+                } else if (fieldName === 'location') {
+                    setFormData(prev => ({ ...prev, location: value }));
+                } else if (fieldName.startsWith('physicalAudit_')) {
+                    const paramKey = fieldName.replace('physicalAudit_', '');
+                    setFormData(prev => ({
+                        ...prev,
+                        physicalAudit: { ...prev.physicalAudit, [paramKey]: value }
+                    }));
+                }
+            },
+            
+            autoNextStep: () => {
+                console.log('🤖 Auto-clicking Next button');
+                if (currentStep < totalSteps) {
+                    setCurrentStep(prev => prev + 1);
+                }
+            },
+            
+            autoSubmitForm: () => {
+                console.log('🤖 Auto-submitting form');
+                handleSubmit();
+            },
+            
+            autoFillAllFields: () => {
+                console.log('🤖 Auto-filling ALL fields');
+                performAutoFillAllFields();
+            }
+        };
+        
+        return () => {
+            window.removeEventListener('message', handleVoiceCommand);
+            delete window.voiceAutomation;
+        };
+    }, [currentStep, totalSteps]);
+
+    useEffect(() => {
+        if (isAutoMode && currentStep === 5) {
+            const allFilled = formData.quantityKg && formData.pricePerKg && formData.location;
+            
+            if (allFilled) {
+                console.log('✅ All fields filled, auto-submitting in 2 seconds...');
+                setAutoStep(5);
+                
+                const timer = setTimeout(() => {
+                    console.log('🤖 Auto-submitting form now...');
+                    handleSubmit();
+                }, 2000);
+                
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [isAutoMode, currentStep, formData]);
+
+    // ✅ NEW: Fire event when submit button becomes enabled
+    useEffect(() => {
+        if (isSubmitEnabled && currentStep === 5) {
+            console.log('✅ SUBMIT BUTTON IS NOW ENABLED! Firing event...');
+            
+            // Emit event for voice automation to catch
+            window.dispatchEvent(new CustomEvent('submitButtonEnabled', { 
+                detail: { 
+                    enabled: true,
+                    timestamp: Date.now()
+                } 
+            }));
+        }
+    }, [isSubmitEnabled, currentStep]);
+
+    // ✅ NEW: Make submit button globally accessible for automation
+    useEffect(() => {
+        if (submitButtonRef.current && currentStep === 5) {
+            window.__submitButton = submitButtonRef.current;
+            console.log('🎯 Submit button ref stored globally:', submitButtonRef.current);
+        }
+        
+        return () => {
+            if (window.__submitButton) {
+                delete window.__submitButton;
+                console.log('🧹 Cleaned up global submit button ref');
+            }
+        };
+    }, [currentStep]);
+
+    // Add these useEffect hooks to AIGrader.jsx
+
+// ✅ EXPOSE FORM DATA GLOBALLY for voice automation
+useEffect(() => {
+  window.__aiGraderFormData = formData;
+  console.log('📊 Global form data updated:', formData);
+}, [formData]);
+
+// ✅ EXPOSE STATE UPDATE FUNCTION
+useEffect(() => {
+  window.updateAIGraderFormData = (data) => {
+    console.log('🔧 Updating form data via global function:', data);
+    setFormData(prev => ({ ...prev, ...data }));
+  };
+  
+  window.updateAIGraderPhysicalAudit = (audit) => {
+    console.log('🔧 Updating physical audit via global function:', audit);
+    setFormData(prev => ({
+      ...prev,
+      physicalAudit: { ...prev.physicalAudit, ...audit }
+    }));
+  };
+  
+  return () => {
+    delete window.updateAIGraderFormData;
+    delete window.updateAIGraderPhysicalAudit;
+  };
+}, []);
+
+// ✅ FIRE EVENT when submit button becomes enabled
+useEffect(() => {
+  if (isSubmitEnabled && currentStep === 5) {
+    console.log('🎉 SUBMIT BUTTON ENABLED! Firing event...');
+    
+    // Fire custom event
+    window.dispatchEvent(new CustomEvent('submitButtonEnabled', { 
+      detail: { 
+        enabled: true,
+        timestamp: Date.now(),
+        formData: formData // Include current form data
+      } 
+    }));
+    
+    // Also set a flag for polling to check
+    window.__submitButtonReady = true;
+  } else {
+    window.__submitButtonReady = false;
+  }
+}, [isSubmitEnabled, currentStep, formData]);
+
+
+
+    // ===================== ICON COMPONENTS =====================
+
     const CameraIcon = () => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-yellow-400">
-          <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z" />
-          <circle cx="12" cy="13" r="3" />
+            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z" />
+            <circle cx="12" cy="13" r="3" />
         </svg>
     );
     
     const CheckIcon = () => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-blue-400">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-8.82" />
-          <path d="M22 4L12 14.01l-3-3" />
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-8.82" />
+            <path d="M22 4L12 14.01l-3-3" />
         </svg>
     );
     
     const DetailsIcon = () => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-green-400">
-          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-          <polyline points="14 2 14 8 20 8" />
-          <line x1="16" y1="13" x2="8" y2="13" />
-          <line x1="16" y1="17" x2="8" y2="17" />
-          <line x1="10" y1="9" x2="8" y2="9" />
+            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+            <line x1="10" y1="9" x2="8" y2="9" />
         </svg>
     );
     
     const MarketIcon = () => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-purple-400">
-          <path d="M3 6l4-4 4 4" />
-          <path d="M11 20h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2v-6H1v6h22v-6h-2v6h-2" />
+            <path d="M3 6l4-4 4 4" />
+            <path d="M11 20h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2v-6H1v6h22v-6h-2v6h-2" />
         </svg>
     );
     
     const Globe = () => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-blue-400">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 2a15.3 15.3 0 0 0 4 10a15.3 15.3 0 0 0-4 10a15.3 15.3 0 0 0-4-10a15.3 15.3 0 0 0 4-10z" />
-          <path d="M2.5 7H21.5" />
-          <path d="M2.5 17H21.5" />
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 2a15.3 15.3 0 0 0 4 10a15.3 15.3 0 0 0-4 10a15.3 15.3 0 0 0-4-10a15.3 15.3 0 0 0 4-10z" />
+            <path d="M2.5 7H21.5" />
+            <path d="M2.5 17H21.5" />
         </svg>
     );
     
     const Lock = () => (
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-purple-400">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
         </svg>
     );
+
+    // ===================== RENDER STEP =====================
 
     const renderStep = () => {
         switch (currentStep) {
@@ -312,6 +705,18 @@ const AIGrader = () => {
                             <CameraIcon />
                             <h2 className="text-2xl font-bold text-indigo-900 dark:text-white">{t('step1.title')}</h2>
                         </div>
+                        
+                        {cropFile && (
+                            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                                    <span className="text-green-700 font-medium">
+                                        Voice-selected: <span className="font-bold">{cropFile.name}</span>
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+                        
                         <div 
                             className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 h-56 cursor-pointer hover:border-indigo-400 transition-all"
                             onDragOver={e => e.preventDefault()}
@@ -319,7 +724,9 @@ const AIGrader = () => {
                         >
                             <input 
                                 type="file" 
-                                accept="video/*" 
+                                accept="video/*"
+                                data-voice-upload="true"
+                                name="videoFile"
                                 onChange={handlePhotoUpload}
                                 className="hidden" 
                                 id="photo-upload" 
@@ -334,21 +741,61 @@ const AIGrader = () => {
                                 <p className="text-lg font-semibold text-indigo-500">{t('step1.uploadPrompt')}</p>
                             </label>
                         </div>
-                        {formData.photo.length > 0 && (
-                            <div className="mt-4 grid grid-cols-3 gap-4">
+                        
+                        {(formData.photo.length > 0 || cropFile) && (
+                            <div className="mt-4">
                                 <div className="relative group">
-                                    <div className="w-full h-24 bg-gray-200 flex items-center justify-center rounded-lg border-2 border-green-500 shadow-sm transition-transform transform group-hover:scale-105">
-                                        <span className="text-xs text-gray-700 font-semibold truncate p-1">📹 {cropFile?.name || t('step1.fileSelected')}</span>
+                                    <div className="w-full p-4 bg-gradient-to-r from-green-50 to-emerald-50 flex flex-col items-center justify-center rounded-lg border-2 border-green-500 shadow-sm">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                                <span className="text-green-600 text-lg">📹</span>
+                                            </div>
+                                            <div className="text-left">
+                                                <p className="text-sm font-bold text-green-800 truncate">
+                                                    {cropFile?.name || 'Video File'}
+                                                </p>
+                                                <p className="text-xs text-green-600">
+                                                    {cropFile?.type || 'video/mp4'} • {(cropFile?.size / (1024 * 1024)).toFixed(2)} MB
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        {cropFile && (
+                                            <div className="mt-2 flex items-center gap-1">
+                                                <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                                                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                                                    Selected via Voice
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
+                                    
                                     <button
-                                        onClick={() => setCropFile(null)}
-                                        className="absolute -top-2 -right-2 bg-red-500 w-6 h-6 rounded-full flex items-center justify-center opacity-100 group-hover:opacity-100 transition-opacity"
+                                        onClick={() => {
+                                            setCropFile(null);
+                                            setFormData(prev => ({ ...prev, photo: [] }));
+                                        }}
+                                        className="absolute -top-2 -right-2 bg-red-500 w-6 h-6 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                                        title="Remove file"
                                     >
                                         <span className="text-white text-sm">×</span>
                                     </button>
                                 </div>
+                                
+                                <div className="mt-4 text-center">
+                                    <button
+                                        onClick={nextStep}
+                                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+                                    >
+                                        Continue to Step 2 →
+                                    </button>
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        File selected! Click "Next" or say "Next" to continue
+                                    </p>
+                                </div>
                             </div>
                         )}
+                        
                         <p className="text-gray-500 dark:text-gray-400 text-sm mt-4 font-medium">{t('step1.description')}</p>
                     </div>
                 );
@@ -361,6 +808,7 @@ const AIGrader = () => {
                             <h2 className="text-2xl font-bold text-indigo-900 dark:text-white">{t('step2.title')}</h2>
                         </div>
                         <select
+                            name="cropType" 
                             value={formData.cropType}
                             onChange={(e) => handleInputChange('cropType', e.target.value)}
                             className="w-full bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl p-4 border border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:outline-none mb-4 appearance-none"
@@ -378,6 +826,19 @@ const AIGrader = () => {
             case 3:
                 return (
                     <div className="space-y-6">
+                        {isAutoMode && autoStep >= 1 && (
+                            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+                                    <span className="text-green-700 text-sm font-medium">
+                                        🤖 Auto-filled: Quantity: {formData.quantityKg || '100'}kg, 
+                                        Price: ₹{formData.pricePerKg || '50'}/kg, 
+                                        Location: {formData.location || 'ಬೆಂಗಳೂರು'}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="flex items-center gap-3 mb-6">
                             <DetailsIcon />
                             <h2 className="text-2xl font-bold text-indigo-900 dark:text-white">{t('step3.title')}</h2>
@@ -464,60 +925,122 @@ const AIGrader = () => {
                     </div>
                 );
 
-            case 5:
-                return (
-                    <div>
-                        <div className="flex items-center gap-3 mb-6">
-                            <MarketIcon />
-                            <h2 className="text-2xl font-bold text-indigo-900 dark:text-white">{t('step5.title')}</h2>
-                        </div>
-                        <div className="space-y-6">
-                            <div
-                                className={`p-6 rounded-xl border-2 cursor-pointer transition-all ${
-                                    formData.marketChoice === 'primary'
-                                        ? 'border-blue-500 bg-blue-500/10'
-                                        : 'border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800'
-                                }`}
-                                onClick={() => handleInputChange('marketChoice', 'primary')}
-                            >
-                                <div className="flex items-center gap-4">
-                                    <Globe />
-                                    <div>
-                                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">{t('step5.primaryMarket.title')}</h3>
-                                        <p className="text-gray-500 dark:text-gray-400">{t('step5.primaryMarket.description')}</p>
-                                    </div>
-                                </div>
-                            </div>
+           // Add this to your AIGrader.jsx in the step 5 render section
 
-                            <div
-                                className={`p-6 rounded-xl border-2 cursor-pointer transition-all ${
-                                    formData.marketChoice === 'zero-waste'
-                                        ? 'border-purple-500 bg-purple-500/10'
-                                        : 'border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800'
-                                }`}
-                                onClick={() => handleInputChange('marketChoice', 'zero-waste')}
-                            >
-                                <div className="flex items-center gap-4">
-                                    <Lock />
-                                    <div>
-                                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">{t('step5.zeroWasteMarket.title')}</h3>
-                                        <p className="text-gray-500 dark:text-gray-400">{t('step5.zeroWasteMarket.description')}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+// Replace the current submit button in case 5 with this:
 
-                        <button
-                            onClick={handleSubmit}
-                            disabled={loading || !formData.quantityKg || !formData.pricePerKg}
-                            className="w-full mt-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {loading ? t('submitButton.loading') : t('submitButton.submit')}
-                        </button>
+case 5:
+    return (
+        <div>
+            <div className="flex items-center gap-3 mb-6">
+                <MarketIcon />
+                <h2 className="text-2xl font-bold text-indigo-900 dark:text-white">{t('step5.title')}</h2>
+            </div>
+            <div className="space-y-6">
+                <div
+                    className={`p-6 rounded-xl border-2 cursor-pointer transition-all ${
+                        formData.marketChoice === 'primary'
+                            ? 'border-blue-500 bg-blue-500/10'
+                            : 'border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800'
+                    }`}
+                    onClick={() => handleInputChange('marketChoice', 'primary')}
+                    data-market="primary"
+                >
+                    <div className="flex items-center gap-4">
+                        <Globe />
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">{t('step5.primaryMarket.title')}</h3>
+                            <p className="text-gray-500 dark:text-gray-400">{t('step5.primaryMarket.description')}</p>
+                        </div>
                     </div>
-                );
+                </div>
 
-            case 6:
+                <div
+                    className={`p-6 rounded-xl border-2 cursor-pointer transition-all ${
+                        formData.marketChoice === 'zero-waste'
+                            ? 'border-purple-500 bg-purple-500/10'
+                            : 'border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800'
+                    }`}
+                    onClick={() => handleInputChange('marketChoice', 'zero-waste')}
+                >
+                    <div className="flex items-center gap-4">
+                        <Lock />
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">{t('step5.zeroWasteMarket.title')}</h3>
+                            <p className="text-gray-500 dark:text-gray-400">{t('step5.zeroWasteMarket.description')}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* ✅ UPDATED SUBMIT BUTTON - Enhanced for voice automation */}
+            <button
+                ref={submitButtonRef}
+                id="final-submit-button"
+                data-automation="submit-crop"
+                data-voice-submit="true"
+                onClick={(e) => {
+                    console.log('🖱️ Submit button clicked!', {
+                        disabled: e.currentTarget.disabled,
+                        loading,
+                        hasQuantity: !!formData.quantityKg,
+                        hasPrice: !!formData.pricePerKg,
+                        hasLocation: !!formData.location
+                    });
+                    handleSubmit();
+                }}
+                disabled={!isSubmitEnabled}
+                className={`w-full mt-6 px-8 py-3 rounded-xl font-semibold transition-all transform ${
+                    !isSubmitEnabled
+                        ? 'bg-gray-400 cursor-not-allowed opacity-50'
+                        : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:opacity-90 hover:scale-[1.02] active:scale-[0.98]'
+                }`}
+            >
+                {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                        </svg>
+                        {t('submitButton.loading')}
+                    </span>
+                ) : (
+                    <>
+                        <span className="inline-block mr-2">📤</span>
+                        {t('submitButton.submit')}
+                    </>
+                )}
+            </button>
+            
+            {/* ✅ Debug info for development */}
+            {process.env.NODE_ENV === 'development' && currentStep === 5 && (
+                <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono">
+                    <div className="font-bold text-indigo-600 dark:text-indigo-400 mb-1">🐛 Debug Info:</div>
+                    <div className="text-gray-700 dark:text-gray-300">
+                        <div>Button Enabled: {isSubmitEnabled ? '✅ YES' : '❌ NO'}</div>
+                        <div>Quantity: {formData.quantityKg || '❌ empty'}</div>
+                        <div>Price: {formData.pricePerKg || '❌ empty'}</div>
+                        <div>Location: {formData.location || '❌ empty'}</div>
+                        <div>Loading: {loading ? 'YES' : 'NO'}</div>
+                    </div>
+                </div>
+            )}
+            
+            {/* ✅ Visual status indicator for automation */}
+            {isAutoMode && isSubmitEnabled && (
+                <div className="mt-3 text-center animate-pulse">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-50 border border-green-300 rounded-full">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-ping"></div>
+                        <span className="text-sm text-green-700 font-medium">
+                            ✅ Ready for auto-submission
+                        </span>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+
+    case 6:
                 return (
                     <div>
                         <div className="flex items-center gap-3 mb-6">
@@ -639,6 +1162,20 @@ const AIGrader = () => {
                         {submissionMessage.text}
                     </div>
                 )}
+
+{isAutoMode && (
+  <div className="p-3 mb-4 bg-blue-50 border border-blue-200 rounded-lg">
+    <div className="flex items-center gap-2">
+      <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+      <span className="text-blue-700 font-medium">
+        🤖 Auto Mode Active - Step {autoStep} of 5
+      </span>
+    </div>
+    <p className="text-xs text-blue-600 mt-1">
+      The system is automatically filling your form. Sit back and relax!
+    </p>
+  </div>
+)}                
 
                 <motion.div 
                     key={currentStep}
