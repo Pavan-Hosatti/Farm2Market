@@ -1,4 +1,4 @@
-// controllers/voiceController.js - FIXED VERSION
+// controllers/voiceController.js - FINAL VERSION WITH ACTION SUPPORT
 const voiceService = require('../services/voiceService');
 const VoiceConversation = require('../models/VoiceConversation');
 
@@ -9,20 +9,21 @@ const voiceController = {
     try {
       console.log('=== Text Query Request ===');
       console.log('Body:', req.body);
-      console.log('User:', req.user); // ✅ Log user info
+      console.log('User:', req.user);
       
-      const startTime = Date.now(); // ✅ Track timing
+      const startTime = Date.now();
       
       const { text, sessionId: clientSessionId, conversationHistory: clientHistory } = req.body;
       
       if (!text) {
         return res.status(400).json({
           success: false,
-          message: 'No text provided'
+          message: 'No text provided',
+          error: 'Text is required'
         });
       }
 
-      // ✅ GET USER ID FROM AUTH MIDDLEWARE
+      // Get user ID from auth middleware
       const userId = req.user?.id || req.user?._id || 'anonymous';
       console.log('🔑 User ID:', userId);
       
@@ -33,57 +34,64 @@ const voiceController = {
         console.log('Using client conversation history:', clientHistory.length, 'messages');
         conversationHistory = clientHistory.map(msg => ({
           role: msg.role,
-          content: msg.parts ? msg.parts[0].text : msg.text
+          parts: msg.parts || [{ text: msg.content || msg.text || '' }]
         }));
       }
 
       console.log('📝 Processing text with history length:', conversationHistory.length);
       console.log('💬 User text:', text);
       
-      // ✅ PASS USER ID TO SERVICE (3rd parameter!)
+      // ✅ CORRECT: Call voice service with 3 parameters
       const result = await voiceService.processTextQuery(
         text,
         conversationHistory,
-        userId  // ✅ THIS WAS MISSING!
+        userId
       );
 
       const endTime = Date.now();
       console.log(`⏱️ Total processing time: ${endTime - startTime}ms`);
+      console.log('🎯 Action detected:', result.action);
+      console.log('💬 AI response:', result.aiText);
 
       if (!result.success) {
         return res.status(500).json({
           success: false,
           message: 'Failed to process text query',
-          error: result.error
+          error: result.error,
+          data: {
+            userText: text,
+            aiText: result.aiText || 'ದೋಷ ಸಂಭವಿಸಿದೆ',
+            action: null
+          }
         });
       }
 
-      console.log('✅ Text query processed successfully');
-      console.log('🤖 AI response:', result.aiText);
-
       // Update conversation history
       conversationHistory.push(
-        { role: 'user', content: result.userText },
-        { role: 'assistant', content: result.aiText }
+        { role: 'user', parts: [{ text: text }] },
+        { role: 'assistant', parts: [{ text: result.aiText }] }
       );
       conversationCache.set(sessionId, conversationHistory);
 
-      // Save to database (async, don't wait)
+      // Save to database (async)
       VoiceConversation.create({
         userId: userId,
         sessionId: sessionId,
-        userText: result.userText,
+        userText: text,
         aiText: result.aiText,
+        action: result.action, // ✅ Store action
         confidence: 1.0,
         timestamp: new Date()
       }).catch(err => console.error('⚠️ Error saving to DB:', err));
 
+      // ✅ CRITICAL FIX: Return EXACT format expected by frontend
       res.json({
         success: true,
         data: {
           sessionId: sessionId,
-          userText: result.userText,
+          userText: text,
           aiText: result.aiText,
+          action: result.action // ✅ MUST be included here
         }
       });
 
@@ -92,7 +100,12 @@ const voiceController = {
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message
+        error: error.message,
+        data: {
+          userText: req.body.text,
+          aiText: 'ಸರ್ವರ್ ದೋಷ ಸಂಭವಿಸಿದೆ',
+          action: null
+        }
       });
     }
   },
@@ -105,7 +118,9 @@ const voiceController = {
       const conversations = await VoiceConversation.find({
         sessionId: sessionId,
         ...(userId && { userId: userId })
-      }).sort({ timestamp: 1 });
+      })
+      .select('userText aiText action timestamp')
+      .sort({ timestamp: 1 });
 
       res.json({
         success: true,
@@ -124,7 +139,15 @@ const voiceController = {
   async clearConversation(req, res) {
     try {
       const { sessionId } = req.params;
+      const userId = req.user?.id || req.user?._id;
+      
       conversationCache.delete(sessionId);
+      
+      // Also delete from database
+      await VoiceConversation.deleteMany({
+        sessionId: sessionId,
+        ...(userId && { userId: userId })
+      });
 
       res.json({
         success: true,
