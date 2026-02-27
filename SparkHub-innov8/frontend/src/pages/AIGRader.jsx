@@ -271,11 +271,16 @@ const submitButtonRef = useRef(null);
 
             console.log('✅ Job Submission Response:', response.data);
 
-            const { job_id: receivedJobId, cropListingId } = response.data;
+            const { job_id: receivedJobId, cropListingId, blockchain } = response.data;
             job_id = receivedJobId;
 
             if (!job_id) {
                 throw new Error(t('errors.noJobId'));
+            }
+
+            // ✅ Store blockchain verification data
+            if (blockchain?.verified && blockchain?.txId) {
+                console.log('🔐 Blockchain Verification TX:', blockchain.txId);
             }
 
             setSubmissionMessage({ 
@@ -300,7 +305,9 @@ setGradeResult({
   details: formData.details,
   grade_breakdown: gradeDetails.grade_breakdown || {},
   frames_analyzed: gradeDetails.frames_analyzed || 0,
-  error: gradeDetails.error
+  error: gradeDetails.error,
+  // ✅ Add blockchain verification data
+  blockchain: response.data?.blockchain
 });
 
 // ✅ FIRE EVENT for VoiceBot to catch
@@ -1113,6 +1120,32 @@ case 5:
                                         )}
                                     </div>
                                 </div>
+
+                                {/* ✅ BLOCKCHAIN VERIFICATION BADGE WITH LINK */}
+                                {gradeResult.blockchain?.verified && gradeResult.blockchain?.txId && (
+                                    <div className="mt-4 p-4 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-xl border-2 border-emerald-200 dark:border-emerald-700">
+                                        <div className="flex items-start gap-3">
+                                            <svg className="w-6 h-6 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                                            </svg>
+                                            <div className="flex-1">
+                                                <h4 className="text-sm font-bold text-emerald-800 dark:text-emerald-300">🔐 Video Uploaded on Blockchain</h4>
+                                                <p className="text-xs text-emerald-700 dark:text-emerald-400 mb-2">Your crop video is securely stored and tamper-proof on Algorand blockchain</p>
+                                                <a 
+                                                    href={`https://testnet.algoexplorer.io/tx/${gradeResult.blockchain.txId}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-emerald-100 underline"
+                                                >
+                                                    View on AlgoExplorer →
+                                                </a>
+                                                <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-1 font-mono break-all">
+                                                    TX: {gradeResult.blockchain.txId}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <button
                                     onClick={resetForm}

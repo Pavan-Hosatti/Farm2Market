@@ -580,41 +580,160 @@ const [selectedCropType, setSelectedCropType] = useState('');
             return;
         }
 
-        const newBid = { id: `b${allBids.length + 1}`, cropListingId: selectedCrop._id, amount: bid, quantity, userId: USER_ID, time: new Date().toISOString() };
-        setAllBids(prev => [...prev, newBid]);
-        setNotifications([{ message: t('Bid of ₹{{bid}}/kg for {{quantity}} KG placed successfully!', { bid: bid.toFixed(2), quantity }), type: 'success' }]);
-
-        // simulate order creation
-        setTimeout(() => {
-            const newOrder = {
-                id: `order_${Date.now()}`,
-                cropName: selectedCrop.produce,
-                quantity,
-                pricePerKg: bid,
-                totalAmount: bid * quantity,
-                farmerName: selectedCrop.farmerId?.name || 'Unknown Farmer',
-                farmerPhone: '+91 98765 43210',
+        // ✅ CALL BACKEND API FOR BID PLACEMENT (with blockchain + PDF generation)
+        try {
+            const response = await axios.post(`${API_BASE_URL}/bids/place`, {
+                cropListingId: selectedCrop._id,
+                buyerId: USER_ID,
+                bidAmount: bid,
+                quantity: quantity,
                 deliveryAddress: userAddress,
-                status: 'confirmed',
-                orderDate: new Date().toISOString(),
-                estimatedDeliveryHours: Math.floor(Math.random() * 12) + 6,
-                deliveryPerson: {
-                    name: ['Rajesh Kumar', 'Amit Singh', 'Prakash Verma', 'Sunil Reddy'][Math.floor(Math.random() * 4)],
-                    phone: '+91 99887 76655',
-                    vehicleNumber: `TN ${Math.floor(Math.random() * 99)} AB ${Math.floor(Math.random() * 9999)}`,
-                    currentLocation: 'Preparing for pickup from farm'
-                },
-                paymentMethod,
-                trackingUpdates: [
-                    { time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }), status: 'Order Confirmed', icon: CheckCircle2 },
-                ]
-            };
-            setMyOrders(prev => [newOrder, ...prev]);
-            setNotifications([{ message: t('🎉 Congratulations! You won the bid! Order created.'), type: 'success' }]);
-        }, 2000);
+                paymentMethod: paymentMethod
+            });
 
-        const newHighest = getCurrentHighestBid(selectedCrop._id, allCrops, [...allBids, newBid]);
-        setBidAmount((newHighest + MIN_BID_RANGE).toFixed(2));
+            const { bid: backendBid, agreementPath, blockchain } = response.data;
+
+            // Add bid to local state
+            const newBid = { 
+                id: backendBid._id || `b${allBids.length + 1}`, 
+                cropListingId: selectedCrop._id, 
+                amount: bid, 
+                quantity, 
+                userId: USER_ID, 
+                time: new Date().toISOString(),
+                agreementPath,
+                blockchain
+            };
+            setAllBids(prev => [...prev, newBid]);
+
+            // ✅ SHOW SUCCESS WITH BLOCKCHAIN VERIFICATION
+            let successMessage = `✅ Order Placed Successfully!\n\n📦 Bid: ₹${bid.toFixed(2)}/kg for ${quantity} KG`;
+            
+            if (blockchain?.verified && blockchain?.txId) {
+                successMessage += `\n\n🔐 Agreement secured on blockchain!`;
+            }
+            
+            if (agreementPath) {
+                successMessage += `\n\n📄 Agreement PDF generated!`;
+            }
+
+            setNotifications([{ message: successMessage, type: 'success' }]);
+
+            // ✅ SHOW BLOCKCHAIN + PDF POPUP
+            if (blockchain?.verified || agreementPath) {
+                setTimeout(() => {
+                    const popup = document.createElement('div');
+                    popup.style.cssText = `
+                        position: fixed; 
+                        top: 50%; 
+                        left: 50%; 
+                        transform: translate(-50%, -50%);
+                        z-index: 9999;
+                        background: linear-gradient(135deg, #10b981, #059669);
+                        color: white;
+                        padding: 24px;
+                        border-radius: 16px;
+                        box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+                        max-width: 500px;
+                        width: 90%;
+                        font-family: system-ui, -apple-system, sans-serif;
+                    `;
+                    
+                    let popupHTML = `
+                        <div style="text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 16px;">🎉</div>
+                            <h2 style="font-size: 24px; font-weight: bold; margin-bottom: 8px;">Order Placed Successfully!</h2>
+                            <p style="font-size: 14px; opacity: 0.9; margin-bottom: 20px;">Your bid has been recorded and agreement generated</p>`;
+                    
+                    if (blockchain?.verified && blockchain?.txId) {
+                        popupHTML += `
+                            <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px; margin-bottom: 12px; text-align: left;">
+                                <p style="font-size: 12px; font-weight: 600; margin-bottom: 6px;">🔐 BLOCKCHAIN VERIFICATION</p>
+                                <p style="font-size: 11px; opacity: 0.9; margin-bottom: 8px;">Agreement secured on Algorand blockchain</p>
+                                <a href="https://testnet.algoexplorer.io/tx/${blockchain.txId}" target="_blank" 
+                                   style="display: inline-block; background: white; color: #059669; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: 600;">
+                                    View on AlgoExplorer →
+                                </a>
+                                <p style="font-size: 9px; opacity: 0.7; margin-top: 6px; word-break: break-all; font-family: monospace;">TX: ${blockchain.txId}</p>
+                            </div>`;
+                    }
+                    
+                    if (agreementPath) {
+                        popupHTML += `
+                            <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px; margin-bottom: 16px; text-align: left;">
+                                <p style="font-size: 12px; font-weight: 600; margin-bottom: 6px;">📄 AGREEMENT PDF</p>
+                                <p style="font-size: 11px; opacity: 0.9; margin-bottom: 8px;">Legal contract generated and ready</p>
+                                <a href="${API_BASE_URL.replace('/api', '')}/${agreementPath}" target="_blank" download
+                                   style="display: inline-block; background: white; color: #059669; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: 600;">
+                                    📥 Download Agreement PDF
+                                </a>
+                            </div>`;
+                    }
+                    
+                    popupHTML += `
+                            <button onclick="this.parentElement.parentElement.remove()" 
+                                style="width: 100%; background: rgba(255,255,255,0.25); border: none; color: white; padding: 12px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                                onmouseover="this.style.background='rgba(255,255,255,0.35)'"
+                                onmouseout="this.style.background='rgba(255,255,255,0.25)'">
+                                Close
+                            </button>
+                        </div>
+                    `;
+                    
+                    popup.innerHTML = popupHTML;
+                    document.body.appendChild(popup);
+
+                    // Auto-close after 15 seconds
+                    setTimeout(() => {
+                        if (popup.parentElement) popup.remove();
+                    }, 15000);
+                }, 500);
+            }
+
+            // Create order (keep for UI state)
+            setTimeout(() => {
+                const newOrder = {
+                    id: `order_${Date.now()}`,
+                    cropName: selectedCrop.produce,
+                    quantity,
+                    pricePerKg: bid,
+                    totalAmount: bid * quantity,
+                    farmerName: selectedCrop.farmerId?.name || 'Unknown Farmer',
+                    farmerPhone: '+91 98765 43210',
+                    deliveryAddress: userAddress,
+                    status: 'confirmed',
+                    orderDate: new Date().toISOString(),
+                    estimatedDeliveryHours: Math.floor(Math.random() * 12) + 6,
+                    deliveryPerson: {
+                        name: ['Rajesh Kumar', 'Amit Singh', 'Prakash Verma', 'Sunil Reddy'][Math.floor(Math.random() * 4)],
+                        phone: '+91 99887 76655',
+                        vehicleNumber: `TN ${Math.floor(Math.random() * 99)} AB ${Math.floor(Math.random() * 9999)}`,
+                        currentLocation: 'Preparing for pickup from farm'
+                    },
+                    paymentMethod,
+                    trackingUpdates: [
+                        { time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }), status: 'Order Confirmed', icon: CheckCircle2 },
+                    ],
+                    agreementPath,
+                    blockchain
+                };
+                setMyOrders(prev => [newOrder, ...prev]);
+            }, 1000);
+
+            const newHighest = getCurrentHighestBid(selectedCrop._id, allCrops, [...allBids, newBid]);
+            setBidAmount((newHighest + MIN_BID_RANGE).toFixed(2));
+
+        } catch (error) {
+            console.error('❌ Bid placement error:', error);
+            
+            // Fallback to mock data if backend fails
+            const newBid = { id: `b${allBids.length + 1}`, cropListingId: selectedCrop._id, amount: bid, quantity, userId: USER_ID, time: new Date().toISOString() };
+            setAllBids(prev => [...prev, newBid]);
+            setNotifications([{ message: t('Bid placed locally (backend unavailable). No blockchain verification.'), type: 'warning' }]);
+
+            const newHighest = getCurrentHighestBid(selectedCrop._id, allCrops, [...allBids, newBid]);
+            setBidAmount((newHighest + MIN_BID_RANGE).toFixed(2));
+        }
     }, [selectedCrop, bidAmount, bidQuantity, userAddress, allCrops, allBids, paymentMethod, t]);
 
     const handleSaveAddress = useCallback(() => {
