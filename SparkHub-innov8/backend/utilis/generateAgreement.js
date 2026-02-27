@@ -323,7 +323,7 @@ const generateAndStoreAgreement = async ({
     // ══════════════════════════════════════════════════════════
     // STORE HASH ON BLOCKCHAIN
     // ══════════════════════════════════════════════════════════
-    const blockchainResult = await callContractMethod("store_hash", [agreementHash]);
+    const blockchainResult = await callContractMethod("store_certificate_hash", [agreementHash]);
 
     console.log('='.repeat(60));
     console.log(`📄 Agreement Result:`, {

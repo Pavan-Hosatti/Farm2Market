@@ -48,19 +48,29 @@ const callContractMethod = async (methodName, args) => {
 
     const suggestedParams = await algodClient.getTransactionParams().do();
 
-    // Define ABI contract interface
+    // Define ABI contract interface matching deployed contract
     const contract = new algosdk.ABIContract({
-      name: "FarmChain",
+      name: "FarmEscrowApp",
       methods: [
         {
           name: "store_video_hash",
-          args: [{ type: "string", name: "video_hash" }],
-          returns: { type: "uint64" },
+          args: [{ type: "string", name: "hash_value" }],
+          returns: { type: "void" },
         },
         {
-          name: "store_hash",
-          args: [{ type: "string", name: "agreement_hash" }],
-          returns: { type: "uint64" },
+          name: "store_certificate_hash",
+          args: [{ type: "string", name: "hash_value" }],
+          returns: { type: "void" },
+        },
+        {
+          name: "get_video_hash",
+          args: [],
+          returns: { type: "string" },
+        },
+        {
+          name: "get_certificate_hash",
+          args: [],
+          returns: { type: "string" },
         },
       ],
     });
