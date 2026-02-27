@@ -29,7 +29,7 @@ exports.placeBid = async (req, res) => {
     // Create and save bid
     const newBid = new Bid({
       cropListingId,
-      buyerId,
+      buyerId, // Accept string directly (e.g., 'buyer123')
       bidAmount,
       bidStatus: 'pending',
     });
@@ -45,8 +45,20 @@ exports.placeBid = async (req, res) => {
       console.log('\n🔐 Generating agreement for bid:', savedBid._id);
       
       // Fetch buyer and farmer details
-      const buyer = await Farmer.findById(buyerId).select('name email');
-      const farmer = await Farmer.findById(crop.farmerId).select('name email');
+      // Try to find by _id first, if fails just use mock data
+      let buyer, farmer;
+      try {
+        buyer = await Farmer.findById(buyerId).select('name email');
+      } catch (e) {
+        // If buyerId is not valid ObjectId (e.g., 'buyer123'), use mock data
+        buyer = { name: 'Mock Buyer', email: 'buyer@example.com' };
+      }
+      
+      try {
+        farmer = await Farmer.findById(crop.farmerId).select('name email');
+      } catch (e) {
+        farmer = { name: 'Mock Farmer', email: 'farmer@example.com' };
+      }
 
       if (buyer && farmer) {
         // Generate agreement with blockchain hash

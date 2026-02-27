@@ -9,8 +9,7 @@ ref: 'CropListing',
 required: true,
 },
 buyerId: {
-type: mongoose.Schema.Types.ObjectId,
-ref: 'Farmer',
+type: String,
 required: true,
 },
 bidAmount: {
