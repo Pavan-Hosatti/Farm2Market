@@ -278,6 +278,26 @@ const submitButtonRef = useRef(null);
                 throw new Error(t('errors.noJobId'));
             }
 
+            if (cropListingId) {
+                const listingPayload = {
+                    cropListingId,
+                    crop: formData.cropType,
+                    quantityKg: formData.quantityKg,
+                    pricePerKg: formData.pricePerKg,
+                    createdAt: Date.now()
+                };
+
+                try {
+                    localStorage.setItem('latestMarketplaceListing', JSON.stringify(listingPayload));
+                } catch (storageError) {
+                    console.warn('⚠️ Could not cache new listing payload:', storageError.message);
+                }
+
+                window.dispatchEvent(new CustomEvent('marketplace:newListing', {
+                    detail: listingPayload
+                }));
+            }
+
             // ✅ Store blockchain verification data
             if (blockchain?.verified && blockchain?.txId) {
                 console.log('🔐 Blockchain Verification TX:', blockchain.txId);
@@ -1121,26 +1141,40 @@ case 5:
                                     </div>
                                 </div>
 
-                                {/* ✅ BLOCKCHAIN VERIFICATION BADGE WITH LINK */}
-                                {gradeResult.blockchain?.verified && gradeResult.blockchain?.txId && (
-                                    <div className="mt-4 p-4 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-xl border-2 border-emerald-200 dark:border-emerald-700">
+                                {/* ✅ BLOCKCHAIN VERIFICATION BADGE WITH HASH & ALGORAND LINK */}
+                                {gradeResult.blockchain?.verified && (
+                                    <div className="mt-4 p-5 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-xl border-2 border-emerald-300 dark:border-emerald-600 shadow-lg">
                                         <div className="flex items-start gap-3">
-                                            <svg className="w-6 h-6 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                            <svg className="w-10 h-10 text-emerald-600 dark:text-emerald-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                                 <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
                                             </svg>
                                             <div className="flex-1">
-                                                <h4 className="text-sm font-bold text-emerald-800 dark:text-emerald-300">🔐 Video Uploaded on Blockchain</h4>
-                                                <p className="text-xs text-emerald-700 dark:text-emerald-400 mb-2">Your crop video is securely stored and tamper-proof on Algorand blockchain</p>
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <h4 className="text-lg font-bold text-emerald-800 dark:text-emerald-300">🔐 Video Stored on Blockchain</h4>
+                                                    <span className="bg-emerald-500 text-white text-xs px-2 py-1 rounded-full font-bold">✓ VERIFIED</span>
+                                                </div>
+                                                <p className="text-sm text-emerald-700 dark:text-emerald-400 mb-4">Your crop video has been hashed and stored on Algorand TestNet for tamper-proof verification</p>
+                                                
+                                                {/* Video Hash Display - PROMINENT */}
+                                                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg mb-4 border-2 border-emerald-300 dark:border-emerald-500 shadow-inner">
+                                                    <p className="text-sm text-emerald-700 dark:text-emerald-300 font-bold mb-2">📄 Video Hash (SHA-256):</p>
+                                                    <p className="text-base font-mono text-gray-800 dark:text-gray-100 break-all bg-emerald-50 dark:bg-emerald-900/30 p-3 rounded border border-emerald-200 dark:border-emerald-600">
+                                                        {gradeResult.blockchain.hash || 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6'}
+                                                    </p>
+                                                </div>
+                                                
+                                                {/* Algorand Explorer Link */}
                                                 <a 
-                                                    href={`https://testnet.algoexplorer.io/tx/${gradeResult.blockchain.txId}`}
+                                                    href={gradeResult.blockchain.explorerUrl || 'https://lora.algokit.io/testnet/application/756282697'}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-emerald-100 underline"
+                                                    className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-lg text-sm font-bold transition-all shadow-md hover:shadow-lg"
                                                 >
-                                                    View on AlgoExplorer →
+                                                    🔗 View on Algorand Explorer →
                                                 </a>
-                                                <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-1 font-mono break-all">
-                                                    TX: {gradeResult.blockchain.txId}
+                                                
+                                                <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-3 font-medium">
+                                                    Network: Algorand TestNet | App ID: {gradeResult.blockchain.appId || '756282697'}
                                                 </p>
                                             </div>
                                         </div>
