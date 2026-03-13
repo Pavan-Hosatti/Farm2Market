@@ -6,23 +6,21 @@ import { Toaster, toast } from 'react-hot-toast';
 // 🔑 FIXED: Adjusted relative path to account for typical component nesting (e.g., src/pages/auth/ -> src/context/)
 import { useAuth } from '../context/AuthContext'; 
 
-const FarmerSignup = () => {
+const SignupPage = () => {
   const navigate = useNavigate();
   // Get the login function from the Auth context
   const { login } = useAuth();
   
   const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    // Default role is fixed to 'farmer'
-    role: 'farmer', 
-    termsAccepted: false
-  });
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'freelancer',
+    termsAccepted: false
+  });
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData({
@@ -72,8 +70,8 @@ const FarmerSignup = () => {
         
       
         
-        // 3. Navigate to the protected farmer dashboard
-        navigate('/farmer-dashboard');
+        // 3. Navigate to the main freelancer dashboard
+        navigate('/freelancer-dashboard');
       } else {
         // 4. Failure: Display server-side error
         const errorMessage = data.message || 'Signup failed. Please check your credentials.';
@@ -91,30 +89,10 @@ const FarmerSignup = () => {
   };
 
   const handleGoogleSignUp = async () => {
-  try {
-    const result = await signInWithPopup(window.firebaseAuth, window.googleProvider);
-    const token = result.user.accessToken; // send to backend
-    const user = result.user;
-
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/google-login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ token })
-    });
-
-    const data = await response.json();
-    if (response.ok) {
-      login(data); // your existing AuthContext
-      navigate('/farmer-dashboard');
-    } else {
-      toast.error(data.message || "Google login failed");
-    }
-  } catch (err) {
-    console.error(err);
-    toast.error("Google login error, try again.");
-  }
-};
+    // Google sign-up disabled - use backend auth instead
+    toast.error("Google sign-up not configured. Please use email/password.");
+    return;
+  };
 
 
   return (
@@ -152,18 +130,18 @@ const FarmerSignup = () => {
           
           {/* Header */}
           <div className="text-center mb-8">
-            {/* Logo updated for Farm2Market theme */}
+            {/* Logo for marketplace theme */}
             <div className="w-16 h-16 bg-gradient-to-r from-emerald-600 to-lime-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <Leaf className="w-8 h-8 text-white"/>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Join Farm2Market</h1>
-            <p className="text-gray-600 dark:text-gray-400">Sign up as a Farmer and grow your income</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Join SparkHub</h1>
+            <p className="text-gray-600 dark:text-gray-400">Sign up as a Freelancer and start winning projects</p>
           </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             
-            {/* Simplified Role Selection (Farmer Only) */}
+            {/* Simplified Role Selection (Freelancer default) */}
             <div>
               <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
                 Your Role:
@@ -172,15 +150,15 @@ const FarmerSignup = () => {
                 className={`p-4 rounded-xl border-2 transition-all text-center border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400`}
               >
                 <User className='w-6 h-6 mx-auto mb-2'/>
-                <div className="font-semibold">Farmer Account</div>
-                <div className="text-xs mt-1 text-emerald-700 dark:text-emerald-300">Upload crops & get fair, direct bids.</div>
+                <div className="font-semibold">Freelancer Account</div>
+                <div className="text-xs mt-1 text-emerald-700 dark:text-emerald-300">Bid on projects and collaborate with clients.</div>
               </div>
             </div>
 
             {/* Full Name */}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
-                Farm Name / Owner Name
+                Full Name
               </label>
               <input
                 type="text"
@@ -188,7 +166,7 @@ const FarmerSignup = () => {
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
-                placeholder="Ex: Green Acres Farm"
+                placeholder="Ex: Alex Johnson"
                 className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all"
                 required
               />
@@ -347,7 +325,7 @@ const FarmerSignup = () => {
           {/* Sign In Link */}
           <div className="text-center mt-8">
             <p className="text-gray-600 dark:text-gray-400">
-              Already selling on Farm2Market?{' '}
+              Already have an account?{' '}
               <Link
                 to="/login"
                 className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 font-semibold transition-colors"
@@ -370,5 +348,5 @@ const FarmerSignup = () => {
 };
 
 
-export default FarmerSignup;
+export default SignupPage;
 

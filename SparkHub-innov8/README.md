@@ -1,4 +1,4 @@
-🌾 Farm2Market — AI-Powered Farmer–Customer Marketplace
+﻿🌾 Farm2Market — AI-Powered Farmer–Customer Marketplace
 🚀 Revolutionizing Agriculture with AI, Voice, and Full-Stack Engineering
 
 Farm2Market bridges the gap between farmers and buyers by integrating AI-powered crop grading, direct online bidding, and Kannada voice interaction — eliminating middlemen and ensuring fair prices.
@@ -60,38 +60,38 @@ A -->|Voice Input/Output| D[Gemini + Google TTS]
 📦 Folder Structure
 Farm2Market/
 │
-├── frontend/        # React + Vite + Tailwind + i18next
-├── backend/         # Node.js + Express + MongoDB
-└── ml_model/        # Flask + YOLOv8 + OpenCV + Gunicorn
+├── web-app/         # React + Vite + Tailwind + i18next
+├── platform-api/    # Node.js + Express + MongoDB
+└── ML/              # Flask + YOLOv8 + OpenCV + Gunicorn
 
 
 
 
 🔧 Installation
 1️⃣ Clone the Repository
-git clone https://github.com/Pavan-Hosatti/Farm2Market.git
-cd Farm2Market
+git clone https://github.com/farm2market/farm2market.git
+cd farm2market
 
 
 
 2️⃣ Frontend Setup
-cd frontend
+cd web-app
 npm install
 npm run dev
 
 
 
 3️⃣ Backend Setup
-cd backend
+cd platform-api
 npm install
 npm run start
 
 
 
 4️⃣ ML Model Setup
-cd ml_model
+cd ML
 pip install -r requirements.txt
-gunicorn app:app
+python app.py
 
 
 
@@ -108,9 +108,9 @@ gunicorn
 Service	Platform	URL
 Frontend	Vercel	farm2-market-ashen.vercel.app
 
-Backend	Render 	https://farm2market-517h.onrender.com/
+Backend	Render 	https://farm2market-api.onrender.com/
 
-ML Model	Render https://farm2market-1-o2dq.onrender.com/api/ml/health
+ML Model	Render https://farm2market-ml.onrender.com/api/ml/health
 
 
 

@@ -677,7 +677,7 @@ const [selectedCropType, setSelectedCropType] = useState('');
                 const explorerUrl = blockchain?.explorerUrl || 'https://lora.algokit.io/testnet/application/756282697';
                 const pdfUrl = agreementPath 
                     ? (agreementPath.startsWith('http') ? agreementPath : `${API_BASE_URL.replace('/api', '')}/${agreementPath}`)
-                    : `${API_BASE_URL.replace('/api', '')}/uploads/agreements/Farm2Market_Agreement.pdf`;
+                    : `${API_BASE_URL.replace('/api', '')}/uploads/agreements/Project_Agreement.pdf`;
                 
                 popup.innerHTML = `
                     <div style="text-align: center;">

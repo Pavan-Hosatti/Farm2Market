@@ -53,10 +53,10 @@ const Home = (props) => (
 
 // --- MOCK PROFILE DATA (for standalone testing) ---
 const mockProfile = {
-    role: 'Farmer',
-    legalName: 'Samee’s Organic Harvest LLC',
+    role: 'Freelancer',
+    legalName: 'Samee Solutions LLC',
     taxId: 'XX-1234567',
-    contactEmail: 'samee@farm2market.com',
+    contactEmail: 'samee@sparkhub.io',
     pricingStrategy: 'Tiered based on volume',
     deliveryRadius: '50 Miles',
     // Mocking the navigate function for isolated testing
@@ -137,7 +137,7 @@ const Settings = ({ profile = mockProfile, navigate = mockProfile.navigate }) =>
         );
       case 'market':
         // Conditional rendering based on role (e.g., only Farmers see this tab)
-        if (p.role !== 'Farmer') {
+        if (p.role !== 'Freelancer') {
             return <p className="pt-8 text-center text-gray-500 dark:text-gray-400">{t('Marketplace configuration is only available for **Farmer** accounts.')}</p>;
         }
         
@@ -180,7 +180,7 @@ const Settings = ({ profile = mockProfile, navigate = mockProfile.navigate }) =>
             {/* 💥 t() usage for title prop */}
             <SectionCard title="API Integrations">
               {/* 💥 t() usage for paragraph text */}
-              <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">{t('Integrate your inventory software with Farm2Market using API keys.')}</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">{t('Integrate your workflow tools with SparkHub using API keys.')}</p>
               {/* 💥 t() usage for label prop */}
               <DisplayField label="Inventory Sync API Key" value="********-****-42c2-b7e1-********" />
               <button className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">

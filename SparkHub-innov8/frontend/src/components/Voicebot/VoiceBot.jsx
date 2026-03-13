@@ -247,7 +247,7 @@ const detectLocalIntent = (userText, uploadState, isProfileActive) => {
     },
     { 
       keywords: ['ಡ್ಯಾಶ್', 'ಡ್ಯಾಶ್‌ಬೋರ್ಡ್', 'dashboard', 'dash'], 
-      action: { type: 'NAVIGATE', params: { route: '/farmer-dashboard' } }, 
+      action: { type: 'NAVIGATE', params: { route: '/dashboard' } }, 
       response: 'ಡ್ಯಾಶ್‌ಬೋರ್ಡ್‌ಗೆ ಹೋಗುತ್ತಿದ್ದೇನೆ'
     },
     { 

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, Bell, User, Settings, LogOut, Menu, X, Home, MessageCircle, Plus, Moon, Sun, ShoppingCart, Tractor, Leaf } from 'lucide-react';
+import { Search, Bell, User, Settings, LogOut, Menu, X, Home, MessageCircle, Plus, Moon, Sun, ShoppingCart, Tractor, Leaf, Briefcase } from 'lucide-react';
 // -----------------------------------------------------------
 // 💡 NEW: Import useTranslation for internationalization
 import { useTranslation } from 'react-i18next'; 
@@ -105,18 +105,8 @@ const Header = ({ isDark, toggleTheme }) => {
 
   // 💡 FIX 3: Dynamic dashboard based on 'user?.role' from context
   const getDashboardInfo = () => {
-    if (user?.role === 'buyer') {
-      // -----------------------------------------------------------
-      // 💡 WRAPPED TEXT: Buyer Dashboard
-      return { name: t('Buyer Dashboard'), href: '/buyer-dashboard', icon: ShoppingCart };
-    } else if (user?.role === 'farmer') {
-      // 💡 WRAPPED TEXT: Farmer Dashboard
-      return { name: t('Farmer'), href: '/farmer-dashboard', icon: Tractor };
-    }
-    // Default fallback
-    // 💡 WRAPPED TEXT: Dashboard
-    return { name: t('Dashboard'), href: '/dashboard', icon: User };
-    // -----------------------------------------------------------
+    // All authenticated users go to main dashboard
+    return { name: t('Dashboard'), href: '/dashboard', icon: Briefcase };
   };
 
   const dashboardInfo = isAuthenticated 
@@ -184,10 +174,8 @@ const Header = ({ isDark, toggleTheme }) => {
                 </div>
                 <div className="hidden sm:block">
                   {/* Brand Name */}
-                  {/* 💡 WRAPPED TEXT: Farm2Market */}
-                  <span className="text-xl lg:text-2xl font-black text-gray-900 dark:text-white transition-colors duration-500">{t('Farm')}<span className="text-green-600 dark:text-green-400">2</span>{t('Market')}</span>
-                  {/* 💡 WRAPPED TEXT: Your Local Harvest */}
-                  <div className="text-xs text-gray-500 dark:text-gray-400 -mt-1 font-medium tracking-wide transition-colors duration-500">{t('Your Local Harvest')}</div>
+                  <span className="text-xl lg:text-2xl font-black text-gray-900 dark:text-white transition-colors duration-500">{t('SparkHub')}</span>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 -mt-1 font-medium tracking-wide transition-colors duration-500">{t('Client & Freelancer Workspace')}</div>
                 </div>
               </Link>
             </motion.div>
@@ -232,7 +220,7 @@ const Header = ({ isDark, toggleTheme }) => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   // 💡 WRAPPED TEXT: Search produce...
-                  placeholder={t('Search produce...')}
+                  placeholder={t('Search projects...')}
                   className="w-64 pl-9 pr-3 py-2 text-sm bg-gray-100 dark:bg-gray-800 border border-transparent dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:border-green-600 focus:outline-none focus:ring-1 focus:ring-green-600 transition-all duration-200"
                 />
               </form>
@@ -407,7 +395,7 @@ const Header = ({ isDark, toggleTheme }) => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   // 💡 WRAPPED TEXT: Search produce...
-                  placeholder={t('Search produce...')}
+                  placeholder={t('Search projects...')}
                   className="w-full pl-12 pr-4 py-3 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:border-green-600 focus:outline-none"
                 />
               </form>
@@ -466,8 +454,7 @@ const Header = ({ isDark, toggleTheme }) => {
                   {t('Login')}
                 </button>
                 <button onClick={() => {navigate('/signup'); setIsMenuOpen(false);}} className="w-full block text-center bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 transition-colors">
-                  {/* 💡 WRAPPED TEXT: Join Farm2Market */}
-                  {t('Join Farm2Market')}
+                  {t('Join SparkHub')}
                 </button>
               </div>
             )}

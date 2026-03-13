@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
+﻿from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import os
@@ -10,7 +10,7 @@ import uuid
 import asyncio
 from typing import Dict, Optional
 
-app = FastAPI(title="Farm2Market ML API")
+app = FastAPI(title="Farm2Market ML Service")
 
 # CORS
 app.add_middleware(
@@ -220,7 +220,7 @@ async def process_video_async(job_id: str, video_path: str, crop_type: str):
 @app.get("/")
 def home():
     return {
-        "message": "Farm2Market ML API",
+        "message": "Farm2Market ML Service",
         "status": "running",
         "models": list(MODELS.keys()),
         "version": "1.0"

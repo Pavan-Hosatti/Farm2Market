@@ -128,7 +128,14 @@ app.get('/api/ml-status', async (req, res) => {
 });
 
 // ✅ IMPORT ROUTES WITH ERROR HANDLING
-let authRoutes, cropListingRoutes, bidRoutes, voiceRoutes, predictRoutes, farmerProfileRoutes;
+let authRoutes, cropListingRoutes, bidRoutes, voiceRoutes, predictRoutes, farmerProfileRoutes, bidbuddyRoutes;
+
+try {
+    bidbuddyRoutes = require('./routes/bidbuddy.routes');
+    console.log('✅ BidBuddy routes loaded');
+} catch (err) {
+    console.error('❌ Error loading BidBuddy routes:', err.message);
+}
 
 try {
     authRoutes = require('./routes/authRoutes');
@@ -174,6 +181,7 @@ try {
 }
 
 // ✅ MOUNT ROUTES (ONLY IF THEY LOADED SUCCESSFULLY)
+if (bidbuddyRoutes) app.use('/api/bidbuddy', bidbuddyRoutes);
 if (authRoutes) app.use('/api/auth', authRoutes);
 if (cropListingRoutes) app.use('/api/crops', cropListingRoutes);
 if (bidRoutes) app.use('/api/bids', bidRoutes);
@@ -187,6 +195,7 @@ app.use('/api/map', mapRoutes);
 console.log('📋 Mounted routes:');
 console.log('   - GET /');
 console.log('   - GET /api/health');
+if (bidbuddyRoutes) console.log('   - /api/bidbuddy/*');
 console.log('   - GET /api/ml-status');
 if (authRoutes) console.log('   - /api/auth/*');
 if (cropListingRoutes) console.log('   - /api/crops/*');

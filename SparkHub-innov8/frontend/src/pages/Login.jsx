@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_URL}/auth`;
 
-const FarmerLogin = () => {
+const LoginPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { login } = useAuth(); 
@@ -56,7 +56,15 @@ const FarmerLogin = () => {
       if (response.ok) {
         login(data); 
         toast.success(t('messages.loginSuccess'), { duration: 3000 });
-        navigate('/farmer-dashboard'); 
+        
+        // Role-based redirect: all active roles go to marketplace dashboard
+        if (data.user && data.user.role === 'freelancer') {
+          console.log('✅ Freelancer login detected, redirecting to /freelancer-dashboard');
+          navigate('/freelancer-dashboard');
+        } else {
+          console.log('✅ User login detected, redirecting to /dashboard');
+          navigate('/dashboard');
+        }
       } else {
         const errorMessage = data.message || t('errors.loginFailed');
         setError(errorMessage);
@@ -251,4 +259,4 @@ const FarmerLogin = () => {
   );
 };
 
-export default FarmerLogin;
+export default LoginPage;

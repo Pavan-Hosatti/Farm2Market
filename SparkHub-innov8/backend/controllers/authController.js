@@ -31,12 +31,12 @@ const sendAuthResponse = (farmer, statusCode, res) => {
         });
 };
 
-// @desc    Register a new Farmer
+// @desc    Register a new User
 // @route   POST /api/auth/register
 // @access  Public
 exports.register = async (req, res, next) => {
     try {
-        const { name, email, password, phone } = req.body; // ✅ Added phone
+        const { name, email, password, phone, role } = req.body; // ✅ Added role parameter
 
         // Validate required fields
         if (!name || !email || !password) {
@@ -46,7 +46,7 @@ exports.register = async (req, res, next) => {
             });
         }
 
-        // Check if farmer already exists
+        // Check if user already exists
         const existingFarmer = await Farmer.findOne({ email });
         
         if (existingFarmer) {
@@ -56,16 +56,16 @@ exports.register = async (req, res, next) => {
             });
         }
 
-        // 💡 Hardcode the role to 'farmer'
+        // ✅ Accept role from request or default to 'freelancer'
         const farmer = await Farmer.create({
             name,
             email,
             password,
             phone: phone || '', // Optional phone
-            role: 'farmer'
+            role: role || 'freelancer' // ✅ Default to freelancer (marketplace user)
         });
 
-        console.log('✅ New farmer registered:', farmer.email);
+        console.log('✅ New user registered:', farmer.email);
         sendAuthResponse(farmer, 201, res);
 
     } catch (err) {
@@ -94,7 +94,7 @@ exports.register = async (req, res, next) => {
     }
 };
 
-// @desc    Login a Farmer
+// @desc    Login a User
 // @route   POST /api/auth/login
 // @access  Public
 exports.login = async (req, res, next) => {
@@ -131,7 +131,7 @@ exports.login = async (req, res, next) => {
             });
         }
 
-        console.log('✅ Farmer logged in:', farmer.email);
+        console.log('✅ User logged in:', farmer.email);
         sendAuthResponse(farmer, 200, res);
 
     } catch (err) {
@@ -143,7 +143,7 @@ exports.login = async (req, res, next) => {
     }
 };
 
-// @desc    Get current logged in farmer
+// @desc    Get current logged in user
 // @route   GET /api/auth/me
 // @access  Private (requires token)
 exports.getMe = async (req, res, next) => {
@@ -238,7 +238,7 @@ exports.googleLogin = async (req, res) => {
                             name: googleUser.name || googleUser.email.split('@')[0],
                             email: googleUser.email,
                             password: 'google-oauth-' + Math.random().toString(36), // Random password
-                            role: 'farmer',
+                            role: 'freelancer',
                             phone: '' // Optional
                         });
                         console.log('✅ New Google user registered:', farmer.email);

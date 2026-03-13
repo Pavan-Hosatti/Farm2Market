@@ -24,8 +24,8 @@ const farmerSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['farmer'],
-        default: 'farmer'
+        enum: ['freelancer', 'buyer', 'admin'], // ✅ Updated for marketplace
+        default: 'freelancer' // ✅ Default to freelancer
     },
     // ✅ NEW: Profile fields (optional)
     farmName: {

@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "algosdk": "^3.5.2",
+    "pdfkit": "^0.17.2"
+  }
+}

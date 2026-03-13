@@ -1,8 +1,8 @@
----
-title: Farm2market
-emoji: 🏢
-colorFrom: yellow
-colorTo: gray
+﻿---
+title: Farm2Market
+emoji: 🌾
+colorFrom: green
+colorTo: yellow
 sdk: docker
 pinned: false
 ---
